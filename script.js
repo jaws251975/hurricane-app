@@ -30,7 +30,7 @@ async function fetchNoaa(url) {
 
     try {
 
-      const response = await fetch(source, {
+      const response = await fetchNoaa(source, {
 
         cache: "no-store"
 
