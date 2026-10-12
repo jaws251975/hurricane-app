@@ -13,6 +13,53 @@ const HURDAT_URLS = {
 
 };
 
+
+async function fetchNoaa(url) {
+
+  const sources = [
+
+    url,
+
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+
+  ];
+
+  let lastError;
+
+  for (const source of sources) {
+
+    try {
+
+      const response = await fetch(source, {
+
+        cache: "no-store"
+
+      });
+
+      if (!response.ok) {
+
+        throw new Error(`HTTP ${response.status}`);
+
+      }
+
+      return response;
+
+    } catch (error) {
+
+      lastError = error;
+
+    }
+
+  }
+
+  throw new Error(
+
+    `Unable to load NOAA data. ${lastError?.message || "Network error"}`
+
+  );
+
+}
+
 const $ = id => document.getElementById(id);
 
 const map = L.map("map").setView([25, -65], 3);
