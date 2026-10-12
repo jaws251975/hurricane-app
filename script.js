@@ -1,6 +1,9 @@
 
 
-const DATA_URL = "https://www.nhc.noaa.gov/CurrentStorms.json";
+
+const DATA_URL =
+
+  "https://www.nhc.noaa.gov/CurrentStorms.json";
 
 const HURDAT_URLS = {
 
