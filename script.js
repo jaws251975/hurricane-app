@@ -1,220 +1,51 @@
 
 
-'use strict';
 
-/* STORMWATCH — Live NOAA tracker + HURDAT2 history */
 
-const DATA_URL = 'https://www.nhc.noaa.gov/CurrentStorms.json';
+async function fetchText(url) {
+  const sources = [
+    url,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(url)}`
+  ];
 
-const HURDAT_URLS = {
+  let lastError;
 
-  atl: 'https://www.nhc.noaa.gov/data/hurdat/hurdat2-1851-2025-092326.txt',
+  for (const source of sources) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
 
-  epac: 'https://www.nhc.noaa.gov/data/hurdat/hurdat2-nepac-1949-2025-092926.txt'
+    try {
+      const response = await fetch(source, {
+        cache: 'no-store',
+        signal: controller.signal
+      });
 
-};
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
 
-const PROXY = 'https://api.allorigins.win/raw?url=';
+      const text = await response.text();
 
-const REFRESH_MS = 5 * 60 * 1000;
+      if (!text.trim()) {
+        throw new Error('The server returned an empty file.');
+      }
 
-const $ = id => document.getElementById(id);
+      return text;
+    } catch (error) {
+      lastError = error;
+      console.warn('Download source failed:', source, error);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 
-const map = L.map('map').setView([25, -65], 3);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-
-  maxZoom: 10,
-
-  attribution: '&copy; OpenStreetMap contributors'
-
-}).addTo(map);
-
-const liveMarkers = L.layerGroup().addTo(map);
-
-const historyMap = L.map('history-map').setView([25, -65], 3);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-
-  maxZoom: 10,
-
-  attribution: '&copy; OpenStreetMap contributors'
-
-}).addTo(historyMap);
-
-const historyLayers = L.layerGroup().addTo(historyMap);
-
-let currentStorms = [];
-
-let selectedId = null;
-
-let archive = [];
-
-let archiveLoadedFor = null;
-
-let liveBusy = false;
-
-let historyBusy = false;
-
-/* GENERAL HELPERS */
-
-function esc(value) {
-
-  return String(value ?? '').replace(/[&<>"']/g, c => ({
-
-    '&': '&amp;', '<': '&lt;', '>': '&gt;',
-
-    '"': '&quot;', "'": '&#39;'
-
-  })[c]);
-
+  throw new Error(
+    `All download attempts failed: ${
+      lastError?.message || 'Network or CORS error'
+    }`
+  );
 }
-
-function safe(value, fallback = 'Not reported') {
-
-  return value != null && String(value).trim() !== ''
-
-    ? String(value) : fallback;
-
-}
-
-function coordinate(value, direction) {
-
-  if (value == null || value === '') return NaN;
-
-  if (typeof value === 'number') return value;
-
-  const text = String(value).trim();
-
-  const number = parseFloat(text);
-
-  if (!Number.isFinite(number)) return NaN;
-
-  if (/[SW]$/i.test(text)) return -Math.abs(number);
-
-  if (/[NE]$/i.test(text)) return Math.abs(number);
-
-  return number;
-
-}
-
-function getCoords(storm) {
-
-  // NOAA's documented JSON uses snake_case numeric fields.
-
-  const latValue = storm.latitude_numeric ?? storm.latitudeNumeric ??
-
-    storm.latitude ?? storm.lat;
-
-  const lonValue = storm.longitude_numeric ?? storm.longitudeNumeric ??
-
-    storm.longitude ?? storm.lon ?? storm.long;
-
-  const lat = coordinate(latValue, 'lat');
-
-  const lon = coordinate(lonValue, 'lon');
-
-  return Number.isFinite(lat) && Number.isFinite(lon) &&
-
-    Math.abs(lat) <= 90 && Math.abs(lon) <= 180
-
-    ? [lat, lon] : null;
-
-}
-
-function stormId(storm, index = 0) {
-
-  return String(storm.id ?? storm.atcfID ?? storm.name ?? `storm-${index}`);
-
-}
-
-function stormName(storm) {
-
-  return safe(storm.name, 'Unnamed system');
-
-}
-
-function stormClass(storm) {
-
-  const code = safe(
-
-    storm.classification ?? storm.class ?? storm.type,
-
-    'Tropical system'
-
-  ).toUpperCase();
-
-  const labels = {
-
-    HU: 'Hurricane',
-
-    TS: 'Tropical Storm',
-
-    TD: 'Tropical Depression',
-
-    STD: 'Subtropical Depression',
-
-    STS: 'Subtropical Storm',
-
-    PTC: 'Post-tropical Cyclone',
-
-    PC: 'Potential Tropical Cyclone',
-
-    TY: 'Typhoon',
-
-    EX: 'Extratropical Cyclone',
-
-    LO: 'Low'
-
-  };
-
-  return labels[code] || code;
-
-}
-
-function windKnots(storm) {
-
-  const value = storm.intensity ?? storm.windSpeed ?? storm.maxWind;
-
-  if (value == null || value === '') return null;
-
-  const number = Number(String(value).replace(/[^\d.-]/g, ''));
-
-  return Number.isFinite(number) ? number : null;
-
-}
-
-function windText(storm) {
-
-  const wind = windKnots(storm);
-
-  return wind == null
-
-    ? 'Not reported'
-
-    : `${wind} kt (${Math.round(wind * 1.15078)} mph)`;
-
-}
-
-function normalizePayload(data) {
-
-  if (Array.isArray(data)) return data;
-
-  if (Array.isArray(data?.activeStorms)) return data.activeStorms;
-
-  if (Array.isArray(data?.storms)) return data.storms;
-
-  if (Array.isArray(data?.active_storms)) return data.active_storms;
-
-  throw new Error('Unrecognized NOAA JSON format.');
-
-}
-
-/* NETWORKING
-
-   Try the official NOAA URL first, then a public CORS proxy.
-
-   The proxy is a fallback, not a guarantee of availability. */
 
 
 async function fetchText(url) {
