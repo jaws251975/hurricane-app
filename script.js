@@ -104,6 +104,34 @@ async function fetchText(url) {
         'https://corsproxy.io/?url=' +
             encodeURIComponent(url)
     ];
+
+    let errors = [];
+
+    for (const source of sources) {
+        try {
+            const response = await fetch(source);
+
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+
+            const text = await response.text();
+
+            if (!text || text.length < 100) {
+                throw new Error('Response was empty or too short');
+            }
+
+            return text;
+        } catch (error) {
+            errors.push(source + ': ' + error.message);
+        }
+    }
+
+    throw new Error(
+        'Could not load historical data. ' +
+        errors.join(' | ')
+    );
+}
     let lastError = null;
     for (const source of sources) {
         const controller = new AbortController();
