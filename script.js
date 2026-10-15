@@ -132,40 +132,7 @@ async function fetchText(url) {
         errors.join(' | ')
     );
 }
-    let lastError = null;
-    for (const source of sources) {
-        const controller = new AbortController();
-        const timeout = setTimeout(
-            () => controller.abort(),
-            10000
-        );
-        try {
-            const response = await fetch(source, {
-                cache: 'no-store',
-                signal: controller.signal
-            });
-            if (!response.ok) {
-                throw new Error('HTTP ' + response.status);
-            }
-            const text = await response.text();
-            if (!text.trim()) {
-                throw new Error('Empty response received.');
-            }
-            if (/^\s*<!doctype html/i.test(text)) {
-                throw new Error('Received a webpage instead of data.');
-            }
-            return text;
-        } catch (error) {
-            lastError = error;
-            console.warn('Data source failed:', error.message);
-        } finally {
-            clearTimeout(timeout);
-        }
-    }
-    throw new Error(
-        lastError ? lastError.message : 'Unable to fetch data.'
-    );
-}
+
 async function fetchJSON(url) {
     const text = await fetchText(url);
     try {
