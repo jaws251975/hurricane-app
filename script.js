@@ -216,7 +216,51 @@ function normalizePayload(data) {
 
    The proxy is a fallback, not a guarantee of availability. */
 
+
 async function fetchText(url) {
+  const sources = [
+    url,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(url)}`
+  ];
+
+  let lastError;
+
+  for (const source of sources) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+
+    try {
+      const response = await fetch(source, {
+        cache: 'no-store',
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const text = await response.text();
+
+      if (!text.trim()) {
+        throw new Error('The server returned an empty file.');
+      }
+
+      return text;
+    } catch (error) {
+      lastError = error;
+      console.warn('Archive source failed:', source, error);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw new Error(
+    `All download attempts failed. ${
+      lastError?.message || 'Network or CORS error'
+    }`
+  );
+}
 
   let lastError;
 
