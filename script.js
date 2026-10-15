@@ -104,7 +104,6 @@ async function fetchText(url) {
         'https://corsproxy.io/?url=' +
             encodeURIComponent(url)
     ];
-
     let errors = [];
 
     for (const source of sources) {
