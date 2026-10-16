@@ -69,9 +69,36 @@ async function fetchStormData() {
             throw new Error('NOAA returned HTTP ' + response.status);
         }
         return await response.json();
-    } catch (error) {
-        directError = error;
-        console.warn('Direct NOAA request failed; trying backup:', error);
+    } catch (error) {    console.error('Live storm loading failed:', error);
+
+    if (storms.length) {
+        // Keep the last known-good storm data visible.
+        renderStormList();
+        renderLiveMap();
+
+        const selectedIndex = storms.findIndex(
+            (storm, index) => getStormId(storm, index) === selectedStorm
+        );
+
+        if (selectedIndex >= 0) {
+            renderStormDetails(storms[selectedIndex]);
+        }
+    } else {
+        showError(
+            'storm-list',
+            'Could not load live storm data. Check your connection and try again. Details: ' +
+            error.message
+        );
+    }
+
+    if (lastUpdated) {
+        lastUpdated.textContent = lastSuccessfulRefresh
+            ? lastSuccessfulRefresh.toLocaleTimeString() + ' (stale)'
+            : 'Unavailable';
+
+        lastUpdated.title =
+            'The latest refresh failed; the displayed time is the last successful fetch.';
+    }
     }
 
     try {
