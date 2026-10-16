@@ -308,10 +308,11 @@ function renderLiveMap() {
         const category = getStormCategory(storm);
         const size = category.size;
         const direction = getMovementDirection(storm);
-        const arrowHTML = Number.isFinite(direction)
-            ? '<span class="storm-direction-arrow" title="Direction of movement" ' +
-              'style="transform:rotate(' + direction + 'deg)">↑</span>'
-            : '';
+     const arrowHTML = Number.isFinite(direction)
+  ? '<span class="storm-direction-arrow" title="Direction of movement" style="transform:rotate('
+    + direction + 'deg)"><span class="storm-direction-shaft"></span><span class="storm-direction-head"></span></span>'
+  : '';
+
 
         const icon = L.divIcon({
             className: 'storm-div-icon',
