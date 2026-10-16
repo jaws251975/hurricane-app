@@ -112,6 +112,32 @@ function getWind(storm) {
     const wind = numberValue(
         storm.intensity ?? storm.maxWind ?? storm.windSpeed
     );
+function getMovement(storm) {
+    const movement =
+        storm.movement ??
+        storm.movementDirection ??
+        storm.direction;
+
+    if (typeof movement === 'string' && movement.trim()) {
+        return movement.trim();
+    }
+
+    if (movement && typeof movement === 'object') {
+        const direction = movement.direction ?? movement.dir;
+        const speed = movement.speed;
+
+        if (direction && speed !== undefined) {
+            return direction + ' at ' + speed + ' mph';
+        }
+
+        if (direction) {
+            return direction;
+        }
+    }
+
+    return 'Not reported';
+}
+
 
     if (!Number.isFinite(wind)) {
         return 'Not reported';
