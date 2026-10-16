@@ -378,9 +378,9 @@ function selectStorm(index) {
     }
 }
 
+
 async function loadLive() {
     if (loadingLive) return;
-
     loadingLive = true;
 
     const button = $('refresh-button');
@@ -395,48 +395,41 @@ async function loadLive() {
     }
 
     try {
-       
-let data;
+        let data;
 
-try {
-    const response = await fetch(DATA_URL, {
-        cache: 'no-store'
-    });
+        try {
+            const response = await fetch(DATA_URL, {
+                cache: 'no-store'
+            });
 
-    if (!response.ok) {
-        throw new Error('NOAA HTTP ' + response.status);
-    }
+            if (!response.ok) {
+                throw new Error('NOAA HTTP ' + response.status);
+            }
 
-    data = await response.json();
-} catch (directError) {
-    console.warn('Direct NOAA request failed:', directError);
+            data = await response.json();
+        } catch (directError) {
+            console.warn('Direct NOAA request failed:', directError);
 
-    const backupURL =
-        'https://api.allorigins.win/raw?url=' +
-        encodeURIComponent(DATA_URL);
+            const backupURL =
+                'https://api.allorigins.win/raw?url=' +
+                encodeURIComponent(DATA_URL);
 
-    const backupResponse = await fetch(backupURL, {
-        cache: 'no-store'
-    });
+            const backupResponse = await fetch(backupURL, {
+                cache: 'no-store'
+            });
 
-    if (!backupResponse.ok) {
-        throw new Error(
-            'Both the NOAA request and backup request failed.'
-        );
-    }
+            if (!backupResponse.ok) {
+                throw new Error(
+                    'Backup request failed: HTTP ' +
+                    backupResponse.status
+                );
+            }
 
-    data = await backupResponse.json();
-}
-
-
-        if (!response.ok) {
-            throw new Error('NOAA returned HTTP ' + response.status);
+            data = await backupResponse.json();
         }
 
-        const data = await response.json();
-
         if (!data || !Array.isArray(data.activeStorms)) {
-            throw new Error('NOAA data format was not recognized.');
+            throw new Error('Unexpected NOAA data format.');
         }
 
         storms = data.activeStorms;
@@ -451,11 +444,15 @@ try {
         }
 
         const selectedIndex = storms.findIndex(
-            (storm, index) => getStormId(storm, index) === selectedStorm
+            (storm, index) =>
+                getStormId(storm, index) === selectedStorm
         );
 
-        if (storms.length) {
-            const index = selectedIndex >= 0 ? selectedIndex : 0;
+        if (storms.length > 0) {
+            const index = selectedIndex >= 0
+                ? selectedIndex
+                : 0;
+
             selectedStorm = getStormId(storms[index], index);
             renderStormList();
             renderStormDetails(storms[index]);
@@ -464,17 +461,19 @@ try {
         }
 
         renderLiveMap();
+
     } catch (error) {
         console.error('Live tracker error:', error);
 
         showError(
             'storm-list',
-            'Could not load NOAA data. Check your connection or try again later.'
+            'Could not load storm data: ' + error.message
         );
 
         if ($('last-updated')) {
             $('last-updated').textContent = 'Unavailable';
         }
+
     } finally {
         loadingLive = false;
 
@@ -484,6 +483,7 @@ try {
         }
     }
 }
+
 
 function initializeEvents() {
     const refreshButton = $('refresh-button');
