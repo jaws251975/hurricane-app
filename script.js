@@ -416,6 +416,7 @@ function selectStorm(index) {
 }
 
 
+
 async function loadLive() {
     if (loadingLive) return;
     loadingLive = true;
@@ -434,42 +435,22 @@ async function loadLive() {
     try {
         let data;
 
-        try 
-try {
-    const response = await fetch(DATA_URL, {
-        cache: 'no-store'
-    });
+        // First, try loading NOAA directly.
+        try {
+            const response = await fetch(DATA_URL, {
+                cache: 'no-store'
+            });
 
-    if (!response.ok) {
-        throw new Error('NOAA HTTP ' + response.status);
-    }
+            if (!response.ok) {
+                throw new Error('NOAA HTTP ' + response.status);
+            }
 
-    data = await response.json();
-
-} catch (directError) {
-    console.warn('Direct NOAA request failed:', directError);
-
-    const backupURL =
-        'https://api.allorigins.win/raw?url=' +
-        encodeURIComponent(DATA_URL);
-
-    const backupResponse = await fetch(backupURL, {
-        cache: 'no-store'
-    });
-
-    if (!backupResponse.ok) {
-        throw new Error(
-            'Backup request failed: HTTP ' +
-            backupResponse.status
-        );
-    }
-
-    data = await backupResponse.json();
-}
+            data = await response.json();
 
         } catch (directError) {
             console.warn('Direct NOAA request failed:', directError);
 
+            // Try the backup service if NOAA cannot be reached.
             const backupURL =
                 'https://api.allorigins.win/raw?url=' +
                 encodeURIComponent(DATA_URL);
@@ -488,8 +469,11 @@ try {
             data = await backupResponse.json();
         }
 
+        // Verify that the response contains the expected storm list.
         if (!data || !Array.isArray(data.activeStorms)) {
-            throw new Error('Unexpected NOAA data format.');
+            throw new Error(
+                'Unexpected NOAA data format: activeStorms is missing.'
+            );
         }
 
         storms = data.activeStorms;
@@ -543,7 +527,6 @@ try {
         }
     }
 }
-
 
 function initializeEvents() {
     const refreshButton = $('refresh-button');
