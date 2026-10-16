@@ -1,0 +1,178 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071525">
+
+  <meta
+    name="description"
+    content="StormWatch live tropical storm and hurricane tracker using NOAA and National Hurricane Center data."
+  >
+
+  <title>StormWatch — Live Hurricane Tracker</title>
+
+  <link rel="stylesheet" href="style.css">
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+</head>
+
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="StormWatch home">
+      <span class="brand-mark">◉</span>
+      STORM<span>WATCH</span>
+    </a>
+
+    <div class="live-label">
+      <span class="live-dot"></span>
+      NOAA DATA
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Page introduction -->
+    <section class="intro">
+      <p class="eyebrow">TROPICAL WEATHER CENTER</p>
+      <h1>Hurricane Tracker</h1>
+
+      <p class="subtitle">
+        Track active tropical systems across the Atlantic and Pacific
+        using official NOAA/National Hurricane Center data.
+      </p>
+    </section>
+
+    <!-- Live status -->
+    <section class="status-row" aria-label="Tracker status">
+      <div class="status-card">
+        <span class="status-icon" aria-hidden="true">◉</span>
+
+        <div>
+          <p class="metric-label">ACTIVE SYSTEMS</p>
+          <strong id="storm-count">—</strong>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <span class="status-icon" aria-hidden="true">↻</span>
+
+        <div>
+          <p class="metric-label">LAST CHECKED</p>
+          <strong id="last-updated">Loading…</strong>
+        </div>
+      </div>
+
+      <button
+        id="refresh-button"
+        class="refresh-button"
+        type="button"
+      >
+        ↻ Refresh data
+      </button>
+    </section>
+
+    <!-- Main live tracker -->
+    <section class="content-grid" aria-label="Live hurricane tracker">
+      <!-- Map -->
+      <section class="panel map-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">ATLANTIC &amp; PACIFIC</p>
+            <h2>Live storm map</h2>
+          </div>
+
+          <span class="map-key">
+            <i aria-hidden="true"></i>
+            Storm location
+          </span>
+        </div>
+
+        <div
+          id="map"
+          role="region"
+          aria-label="Interactive live tropical storm map"
+        ></div>
+
+        <p class="map-note">
+          Markers show reported storm positions, not forecast tracks
+          or warning boundaries.
+        </p>
+      </section>
+
+      <!-- Storm list and details -->
+      <aside class="panel storm-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">CURRENT ACTIVITY</p>
+            <h2>Active systems</h2>
+          </div>
+        </div>
+
+        <div
+          id="storm-list"
+          class="storm-list"
+          aria-live="polite"
+          aria-label="Active tropical systems"
+        >
+          <div class="loading">
+            Fetching official storm data…
+          </div>
+        </div>
+
+        <div
+          id="detail"
+          class="detail-card"
+          aria-live="polite"
+        >
+          <p class="eyebrow">STORM DETAILS</p>
+
+          <p class="detail-placeholder">
+            Select a storm from the list or map to view its details.
+          </p>
+        </div>
+      </aside>
+    </section>
+
+    <!-- Safety notice -->
+    <section class="notice">
+      <strong>Safety note</strong>
+
+      <p>
+        StormWatch is an informational tracker, not an emergency
+        alert service. For official forecasts, watches, and warnings,
+        follow the
+        <a
+          href="https://www.nhc.noaa.gov/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >National Hurricane Center</a>
+        and your local emergency management office.
+      </p>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <span>
+        Data:
+        <a
+          href="https://www.nhc.noaa.gov/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          NOAA / National Hurricane Center
+        </a>
+      </span>
+
+      <span>Automatic refresh: approximately every 5 minutes</span>
+    </footer>
+  </main>
+
+  <!-- Load Leaflet before the tracker JavaScript -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
