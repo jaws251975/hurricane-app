@@ -57,13 +57,15 @@ function parseCoordinate(value) {
 }
 
 function getCoordinates(storm) {
-    const lat = parseCoordinate(
-        storm.latitudeNumeric ?? storm.latitude ?? storm.lat
-    );
+ const lat = numberValue(
+    storm.latitude_numeric ?? storm.latitudeNumeric ??
+    storm.latitude ?? storm.lat
+);
 
-    const lon = parseCoordinate(
-        storm.longitudeNumeric ?? storm.longitude ?? storm.lon
-    );
+const lon = numberValue(
+    storm.longitude_numeric ?? storm.longitudeNumeric ??
+    storm.longitude ?? storm.lon
+);
 
     if (
         Number.isFinite(lat) &&
@@ -402,11 +404,7 @@ async function loadLive() {
                 cache: 'no-store'
             });
 
-            if (!response.ok) {
-                throw new Error('NOAA HTTP ' + response.status);
-            }
 
-            data = await response.json();
         } catch (directError) {
             console.warn('Direct NOAA request failed:', directError);
 
