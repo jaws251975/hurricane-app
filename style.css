@@ -586,3 +586,91 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Large red direction arrow */
+.storm-direction-arrow {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: -34%;
+  width: 0;
+  height: 80%;
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
+
+.storm-direction-shaft {
+  position: absolute;
+  bottom: 0;
+  left: -3px;
+  width: 6px;
+  height: 100%;
+  border-radius: 4px;
+  background: #ff3030;
+  box-shadow: 0 0 7px #ff0000;
+}
+
+.storm-direction-head {
+  position: absolute;
+  top: -2px;
+  left: -11px;
+  width: 0;
+  height: 0;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-bottom: 21px solid #ff3030;
+  filter: drop-shadow(0 0 3px #ff0000);
+}
+
+.storm-direction-fin {
+  position: absolute;
+  top: 12px;
+  left: -9px;
+  width: 18px;
+  height: 7px;
+  border-radius: 2px;
+  background: #ff3030;
+}
+
+/* Extra curved category bands around the swirl */
+.storm-category-band {
+  position: absolute;
+  z-index: 1;
+  width: 65%;
+  height: 65%;
+  border: 2px solid white;
+  border-radius: 50%;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.storm-category-band-one {
+  transform: rotate(35deg) scaleX(0.65);
+}
+
+.storm-category-band-two {
+  transform: rotate(-35deg) scaleX(0.65);
+}
+
+/* Official forecast wind labels */
+.forecast-wind-icon {
+  background: transparent;
+  border: 0;
+}
+
+.forecast-wind-label {
+  display: block;
+  width: max-content;
+  max-width: 145px;
+  padding: 5px 7px;
+  border: 1px solid #ff4545;
+  border-radius: 5px;
+  background: #172438ed;
+  color: white;
+  font: 10px/1.5 'DM Mono', monospace;
+  text-align: center;
+  box-shadow: 0 1px 6px #0008;
+  pointer-events: none;
+}
+
