@@ -108,10 +108,19 @@ function getStormType(storm) {
     return types[type] || type;
 }
 
+
 function getWind(storm) {
     const wind = numberValue(
         storm.intensity ?? storm.maxWind ?? storm.windSpeed
     );
+
+    if (!Number.isFinite(wind)) {
+        return 'Not reported';
+    }
+
+    return Math.round(wind * 1.15078) + ' mph';
+}
+
 function getMovement(storm) {
     const movement =
         storm.movement ??
@@ -138,14 +147,6 @@ function getMovement(storm) {
     return 'Not reported';
 }
 
-
-    if (!Number.isFinite(wind)) {
-        return 'Not reported';
-    }
-
-    // NOAA storm intensity is reported in knots.
-    return Math.round(wind * 1.15078) + ' mph';
-}
 
 function showError(elementId, message) {
     const element = $(elementId);
