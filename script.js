@@ -17,7 +17,7 @@ let storms = [];
 let selectedStorm = null;
 let liveMap = null;
 let liveMarkers = null;
-
+let lastSuccessfulRefresh = null;
 let forecastLayers = [];
 let loadingForecast = false;
 
