@@ -299,10 +299,13 @@ function renderLiveMap() {
         L.marker(coordinates, { icon })
             .addTo(liveMarkers)
             .bindPopup(
-                '<strong>' + escapeHTML(getStormName(storm)) +
-                '</strong><br>' +
-                escapeHTML(category.name) + '<br>' +
-                'Wind: ' + escapeHTML(getWind(storm))
+                
+'<strong>' + escapeHTML(getStormName(storm)) +
+'</strong><br>' +
+escapeHTML(category.name) + '<br>' +
+'Wind: ' + escapeHTML(getWind(storm)) + '<br>' +
+'Movement: ' + escapeHTML(getMovement(storm))
+
             );
     });
 }
