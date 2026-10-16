@@ -674,4 +674,78 @@ footer {
   pointer-events: none;
 }
 
+/* Simple striped hurricane marker */
+.storm-div-icon {
+  background: transparent;
+  border: none;
+}
+
+.storm-pin {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.storm-swirl {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Movement arrow stays outside the category center */
+.storm-direction-arrow {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: -13px;
+  width: 4px;
+  height: 24px;
+  transform-origin: 50% 25px;
+  pointer-events: none;
+}
+
+.storm-direction-shaft {
+  position: absolute;
+  left: 1px;
+  top: 5px;
+  width: 3px;
+  height: 16px;
+  background: #111827;
+  border: 1px solid #ffffff;
+}
+
+.storm-direction-head {
+  position: absolute;
+  left: -5px;
+  top: -1px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 12px solid #111827;
+  filter: drop-shadow(0 0 1px #ffffff);
+}
+
+/* Forecast labels */
+.forecast-wind-icon {
+  background: transparent;
+  border: none;
+}
+
+.forecast-wind-label {
+  display: inline-block;
+  padding: 3px 5px;
+  border: 1px solid #e52222;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #b00000;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px #0004;
+}
+
 
