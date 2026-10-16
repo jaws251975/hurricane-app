@@ -428,7 +428,7 @@ footer a { color: var(--cyan); }
     inset: 4%;
     width: 92%;
     height: 92%;
-    opacity: 0.55;
+    opacity: 0.85;
     pointer-events: none;
 }
 
