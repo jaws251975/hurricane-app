@@ -455,8 +455,7 @@ async function loadLive() {
 
         // First, try loading NOAA directly.
         try {
-            const response = await fetch(DATA_URL, {
-                cache: 'no-store'
+            const response = await fetchWithTimeout(DATA_URL)
             });
 
             if (!response.ok) {
@@ -473,8 +472,7 @@ async function loadLive() {
                 'https://api.allorigins.win/raw?url=' +
                 encodeURIComponent(DATA_URL);
 
-            const backupResponse = await fetch(backupURL, {
-                cache: 'no-store'
+            const backupResponse = await fetchWithTimeout(backupURL)
             });
 
             if (!backupResponse.ok) {
