@@ -433,11 +433,38 @@ async function loadLive() {
     try {
         let data;
 
-        try {
-            const response = await fetch(DATA_URL, {
-                cache: 'no-store'
-            });
+        try 
+try {
+    const response = await fetch(DATA_URL, {
+        cache: 'no-store'
+    });
 
+    if (!response.ok) {
+        throw new Error('NOAA HTTP ' + response.status);
+    }
+
+    data = await response.json();
+
+} catch (directError) {
+    console.warn('Direct NOAA request failed:', directError);
+
+    const backupURL =
+        'https://api.allorigins.win/raw?url=' +
+        encodeURIComponent(DATA_URL);
+
+    const backupResponse = await fetch(backupURL, {
+        cache: 'no-store'
+    });
+
+    if (!backupResponse.ok) {
+        throw new Error(
+            'Backup request failed: HTTP ' +
+            backupResponse.status
+        );
+    }
+
+    data = await backupResponse.json();
+}
 
         } catch (directError) {
             console.warn('Direct NOAA request failed:', directError);
