@@ -252,27 +252,113 @@ function selectStorm(index) {
         liveMap.flyTo(coordinates, 5);
     }
 }
+
+
+function getStormCategory(storm) {
+    const type = String(
+        storm.classification || storm.type || ''
+    ).toUpperCase();
+
+    const wind = Number(
+        storm.intensity ?? storm.maxWind ?? storm.windSpeed
+    );
+
+    if (type === 'TD' || type === 'SD') {
+        return {
+            label: 'TD',
+            name: 'Tropical Depression',
+            color: '#22c55e',
+            size: 34
+        };
+    }
+
+    if (type === 'TS' || type === 'SS') {
+        return {
+            label: 'TS',
+            name: 'Tropical Storm',
+            color: '#22c55e',
+            size: 38
+        };
+    }
+
+    if (type === 'HU' && Number.isFinite(wind)) {
+        if (wind >= 137) {
+            return { label: '5', name: 'Category 5 Hurricane',
+                color: '#7f1d1d', size: 60 };
+        }
+        if (wind >= 113) {
+            return { label: '4', name: 'Category 4 Hurricane',
+                color: '#dc2626', size: 55 };
+        }
+        if (wind >= 96) {
+            return { label: '3', name: 'Category 3 Hurricane',
+                color: '#f87171', size: 50 };
+        }
+        if (wind >= 83) {
+            return { label: '2', name: 'Category 2 Hurricane',
+                color: '#f97316', size: 45 };
+        }
+        if (wind >= 64) {
+            return { label: '1', name: 'Category 1 Hurricane',
+                color: '#facc15', size: 40 };
+        }
+    }
+
+    return {
+        label: type || '?',
+        name: getStormType(storm),
+        color: '#94a3b8',
+        size: 34
+    };
+}
+
 function renderLiveMap() {
     if (!liveMarkers) return;
+
     liveMarkers.clearLayers();
+
     storms.forEach(function (storm) {
         const coordinates = getCoordinates(storm);
         if (!coordinates) return;
-        L.circleMarker(coordinates, {
-            radius: 7,
-            color: '#ffffff',
-            weight: 2,
-            fillColor: '#ffb35c',
-            fillOpacity: 1
-        })
-        .addTo(liveMarkers)
-        .bindPopup(
-            '<strong>' + escapeHTML(getStormName(storm)) + '</strong><br>' +
-            escapeHTML(getStormType(storm)) + '<br>' +
-            'Wind: ' + escapeHTML(getWind(storm))
-        );
+
+        const category = getStormCategory(storm);
+        const size = category.size;
+
+        const icon = L.divIcon({
+            className: 'storm-div-icon',
+            html:
+                '<div class="storm-pin" style="' +
+                '--storm-color:' + category.color +
+                ';width:' + size + 'px;height:' + size + 'px">' +
+                '<svg class="storm-swirl" viewBox="0 0 64 64">' +
+                '<path d="M32 7 C16 7 8 19 13 29 ' +
+                'C17 37 29 37 34 29 C38 22 30 17 24 21 ' +
+                'M32 7 C48 7 57 20 51 32 ' +
+                'C47 41 35 44 27 38 C20 33 23 25 30 25 ' +
+                'M32 57 C16 57 7 45 13 35 ' +
+                'M32 57 C48 57 57 44 51 34" ' +
+                'fill="none" stroke="white" stroke-width="3.5" ' +
+                'stroke-linecap="round"/>' +
+                '</svg>' +
+                '<span class="storm-pin-label">' +
+                category.label +
+                '</span></div>',
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
+            popupAnchor: [0, -size / 2]
+        });
+
+        L.marker(coordinates, { icon: icon })
+            .addTo(liveMarkers)
+            .bindPopup(
+                '<strong>' + escapeHTML(getStormName(storm)) +
+                '</strong><br>' +
+                escapeHTML(category.name) + '<br>' +
+                'Wind: ' + escapeHTML(getWind(storm))
+            );
     });
 }
+
 async function loadLive() {
     if (loadingLive) return;
     loadingLive = true;
