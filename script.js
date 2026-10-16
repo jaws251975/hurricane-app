@@ -1,0 +1,778 @@
+
+'use strict';
+
+/* =====================================================
+   STORMWATCH — LIVE STORMS + OFFICIAL NHC FORECAST
+   ===================================================== */
+
+const DATA_URL = 'https://www.nhc.noaa.gov/CurrentStorms.json';
+const BACKUP_URL =
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(DATA_URL);
+
+const NHC_MAP_SERVICE =
+    'https://mapservices.weather.noaa.gov/tropical/rest/services/' +
+    'tropical/NHC_tropical_weather_summary/MapServer/';
+
+const REFRESH_INTERVAL = 5 * 60 * 1000;
+const REQUEST_TIMEOUT = 12000;
+
+const $ = id => document.getElementById(id);
+
+let storms = [];
+let selectedStormId = null;
+let liveMap = null;
+let liveMarkers = null;
+let forecastLayers = [];
+let loadingLive = false;
+let loadingForecast = false;
+let lastGoodData = null;
+let refreshTimer = null;
+
+
+/* ----------------- GENERAL HELPERS ----------------- */
+
+function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[char]);
+}
+
+function finiteNumber(value) {
+    if (value === null || value === undefined || value === '') {
+        return NaN;
+    }
+
+    const number = Number(value);
+    return Number.isFinite(number) ? number : NaN;
+}
+
+function firstNumber(...values) {
+    for (const value of values) {
+        const number = finiteNumber(value);
+        if (Number.isFinite(number)) return number;
+    }
+    return NaN;
+}
+
+async function fetchJSON(url) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+    try {
+        const response = await fetch(url, {
+            cache: 'no-store',
+            signal: controller.signal
+        });
+
+        if (!response.ok) {
+            throw new Error('HTTP ' + response.status);
+        }
+
+        return await response.json();
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function setStatus(message, title = '') {
+    const element = $('last-updated');
+    if (!element) return;
+
+    element.textContent = message;
+    element.title = title;
+}
+
+function showListMessage(message) {
+    const list = $('storm-list');
+    if (list) {
+        list.innerHTML =
+            '<div class="error-state">' + escapeHTML(message) + '</div>';
+    }
+}
+
+
+/* ----------------- LIVE NOAA DATA ----------------- */
+
+// Different responses/proxies can wrap the JSON differently.
+// Accept the usual NOAA shape and common proxy wrappers.
+function extractStorms(data) {
+    const candidates = [
+        data,
+        data?.data,
+        data?.body,
+        data?.contents
+    ];
+
+    for (const candidate of candidates) {
+        if (candidate && Array.isArray(candidate.activeStorms)) {
+            return candidate.activeStorms;
+        }
+
+        if (typeof candidate === 'string') {
+            try {
+                const parsed = JSON.parse(candidate);
+                if (Array.isArray(parsed.activeStorms)) {
+                    return parsed.activeStorms;
+                }
+            } catch (_) {
+                // Try the next candidate.
+            }
+        }
+    }
+
+    throw new Error('NOAA response did not contain activeStorms.');
+}
+
+async function fetchStorms() {
+    let directError;
+
+    try {
+        return extractStorms(await fetchJSON(DATA_URL));
+    } catch (error) {
+        directError = error;
+        console.warn('Direct NOAA request failed:', error);
+    }
+
+    try {
+        return extractStorms(await fetchJSON(BACKUP_URL));
+    } catch (backupError) {
+        throw new Error(
+            'Live data could not be reached. NOAA: ' +
+            (directError?.message || 'failed') +
+            '; backup: ' + (backupError?.message || 'failed')
+        );
+    }
+}
+
+
+/* ----------------- STORM DETAILS ----------------- */
+
+function stormName(storm) {
+    return storm.name || storm.stormName || 'Unnamed system';
+}
+
+function stormId(storm, index) {
+    return String(storm.id || storm.stormId || stormName(storm) + '-' + index);
+}
+
+function stormTypeCode(storm) {
+    return String(storm.classification || storm.type || '')
+        .trim().toUpperCase();
+}
+
+function stormType(storm) {
+    const types = {
+        TD: 'Tropical Depression',
+        TS: 'Tropical Storm',
+        HU: 'Hurricane',
+        TY: 'Typhoon',
+        ST: 'Super Typhoon',
+        EX: 'Extratropical',
+        LO: 'Low',
+        SD: 'Subtropical Depression',
+        SS: 'Subtropical Storm',
+        DB: 'Disturbance'
+    };
+
+    const code = stormTypeCode(storm);
+    return types[code] || code || 'Tropical system';
+}
+
+function windMph(storm) {
+    for (const value of [
+        storm.intensity,
+        storm.maxWind,
+        storm.windSpeed
+    ]) {
+        if (typeof value === 'number') return value;
+
+        if (typeof value === 'string') {
+            const match = value.match(/(\d+(?:\.\d+)?)\s*(mph|kt|kts|knots?)?/i);
+            if (match) {
+                const speed = Number(match[1]);
+                const unit = (match[2] || '').toLowerCase();
+                return ['kt', 'kts', 'knot', 'knots'].includes(unit)
+                    ? speed * 1.15078
+                    : speed;
+            }
+        }
+    }
+
+    return NaN;
+}
+
+function windKnots(storm) {
+    const mph = windMph(storm);
+    return Number.isFinite(mph) ? mph / 1.15078 : NaN;
+}
+
+function windText(storm) {
+    const mph = windMph(storm);
+    return Number.isFinite(mph) ? Math.round(mph) + ' mph' : 'Not reported';
+}
+
+function categoryInfo(storm) {
+    const type = stormTypeCode(storm);
+    const knots = windKnots(storm);
+
+    if (type === 'TD' || type === 'SD') {
+        return { label: type, color: '#22c55e', size: 42 };
+    }
+
+    if (type === 'TS' || type === 'SS') {
+        return { label: type, color: '#22c55e', size: 42 };
+    }
+
+    if (['HU', 'TY'].includes(type) && Number.isFinite(knots)) {
+        if (knots >= 137) return { label: '5', color: '#7f1d1d', size: 48 };
+        if (knots >= 113) return { label: '4', color: '#dc2626', size: 46 };
+        if (knots >= 96) return { label: '3', color: '#f87171', size: 44 };
+        if (knots >= 83) return { label: '2', color: '#f97316', size: 42 };
+        if (knots >= 64) return { label: '1', color: '#facc15', size: 40 };
+    }
+
+    return { label: type || '?', color: '#94a3b8', size: 42 };
+}
+
+function coordinate(value) {
+    if (typeof value === 'number') return value;
+    if (value === null || value === undefined) return NaN;
+
+    const match = String(value).trim().toUpperCase().match(
+        /^(-?\d+(?:\.\d+)?)\s*°?\s*([NSEW])?$/
+    );
+
+    if (!match) return NaN;
+
+    let result = Number(match[1]);
+    if (match[2] === 'S' || match[2] === 'W') result = -Math.abs(result);
+    if (match[2] === 'N' || match[2] === 'E') result = Math.abs(result);
+
+    return result;
+}
+
+function stormCoordinates(storm) {
+    const lat = coordinate(
+        storm.latitude_numeric ?? storm.latitudeNumeric ??
+        storm.latitude ?? storm.lat
+    );
+    const lon = coordinate(
+        storm.longitude_numeric ?? storm.longitudeNumeric ??
+        storm.longitude ?? storm.lon
+    );
+
+    if (
+        Number.isFinite(lat) && Number.isFinite(lon) &&
+        Math.abs(lat) <= 90 && Math.abs(lon) <= 180
+    ) {
+        return [lat, lon];
+    }
+
+    return null;
+}
+
+
+/* ----------------- MOVEMENT DIRECTION ----------------- */
+
+function movementDegrees(storm) {
+    const numeric = firstNumber(
+        storm.movementDir,
+        storm.movementDirectionDegrees,
+        storm.directionDegrees
+    );
+
+    if (Number.isFinite(numeric) && numeric >= 0 && numeric <= 360) {
+        return numeric % 360;
+    }
+
+    const text = [
+        typeof storm.movement === 'string' ? storm.movement : '',
+        typeof storm.movementDirection === 'string' ? storm.movementDirection : '',
+        typeof storm.direction === 'string' ? storm.direction : ''
+    ].join(' ').toUpperCase();
+
+    const match = text.match(
+        /\b(NNE|ENE|ESE|SSE|SSW|WSW|WNW|NNW|NE|SE|SW|NW|N|E|S|W)\b/
+    );
+
+    if (!match) return NaN;
+
+    const degrees = {
+        N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+        E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+        S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+        W: 270, WNW: 292.5, NW: 315, NNW: 337.5
+    };
+
+    return degrees[match[1]];
+}
+
+function movementText(storm) {
+    const degrees = movementDegrees(storm);
+    if (!Number.isFinite(degrees)) return 'Not reported';
+
+    const compass = [
+        'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+        'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'
+    ];
+
+    return compass[Math.round(degrees / 22.5) % 16];
+}
+
+
+/* ----------------- STRIPED HURRICANE MARKER ----------------- */
+
+// The category is drawn inside the SVG, so no separate label can cover it.
+// The red-and-white curved bands keep the simpler original-style marker.
+function hurricaneIconHTML(label, color) {
+    const safeLabel = escapeHTML(label || '?');
+    const fontSize = safeLabel.length > 2 ? 9 : 13;
+
+    return `
+        <svg class="storm-swirl"
+             viewBox="0 0 48 48"
+             role="img"
+             aria-label="Storm ${safeLabel}">
+            <circle cx="24" cy="24" r="21"
+                    fill="#ffffff" stroke="${color}" stroke-width="2.5"/>
+
+            <path d="M24 3 A21 21 0 0 1 45 24 L35 24 A11 11 0 0 0 24 13 Z"
+                  fill="#e52222"/>
+            <path d="M45 24 A21 21 0 0 1 24 45 L24 35 A11 11 0 0 0 35 24 Z"
+                  fill="#e52222"/>
+            <path d="M24 45 A21 21 0 0 1 3 24 L13 24 A11 11 0 0 0 24 35 Z"
+                  fill="#e52222"/>
+            <path d="M3 24 A21 21 0 0 1 24 3 L24 13 A11 11 0 0 0 13 24 Z"
+                  fill="#e52222"/>
+
+            <circle cx="24" cy="24" r="10.5"
+                    fill="#ffffff" stroke="${color}" stroke-width="2"/>
+            <text x="24" y="28.5"
+                  text-anchor="middle"
+                  font-family="Arial, Helvetica, sans-serif"
+                  font-size="${fontSize}"
+                  font-weight="900"
+                  fill="#111827">${safeLabel}</text>
+        </svg>
+    `;
+}
+
+function directionArrowHTML(storm) {
+    const degrees = movementDegrees(storm);
+    if (!Number.isFinite(degrees)) return '';
+
+    return `
+        <span class="storm-direction-arrow"
+              title="Reported movement direction"
+              style="transform:rotate(${degrees}deg)">
+            <span class="storm-direction-shaft"></span>
+            <span class="storm-direction-head"></span>
+        </span>
+    `;
+}
+
+
+/* ----------------- MAP INITIALIZATION ----------------- */
+
+function initializeMap() {
+    const element = $('map');
+    if (!element || liveMap) return;
+
+    if (typeof L === 'undefined') {
+        showListMessage('The map library did not load. Check your connection and reload.');
+        return;
+    }
+
+    liveMap = L.map(element, {
+        zoomControl: true,
+        preferCanvas: true
+    }).setView([22, -65], 3);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(liveMap);
+
+    liveMarkers = L.layerGroup().addTo(liveMap);
+    setTimeout(() => liveMap?.invalidateSize(), 300);
+}
+
+
+/* ----------------- OFFICIAL NHC FORECAST LAYERS ----------------- */
+
+// NHC service: 7 = forecast cone, 6 = forecast track, 5 = forecast points.
+async function loadForecastLayers() {
+    if (!liveMap || typeof L === 'undefined' || loadingForecast) return;
+
+    loadingForecast = true;
+    const newLayers = [];
+
+    try {
+        for (const item of [
+            { id: 7, kind: 'cone' },
+            { id: 6, kind: 'track' },
+            { id: 5, kind: 'points' }
+        ]) {
+            const url = NHC_MAP_SERVICE + item.id +
+                '/query?where=1%3D1&outFields=*&returnGeometry=true' +
+                '&outSR=4326&f=geojson';
+
+            let data;
+            try {
+                data = await fetchJSON(url);
+            } catch (error) {
+                console.warn('Could not load NHC forecast layer ' + item.id, error);
+                continue;
+            }
+
+            if (!Array.isArray(data.features) || !data.features.length) continue;
+
+            const layer = L.geoJSON(data, {
+                style: () => item.kind === 'cone'
+                    ? {
+                        color: '#e52222',
+                        weight: 2,
+                        opacity: 0.95,
+                        fillColor: '#e52222',
+                        fillOpacity: 0.18
+                    }
+                    : {
+                        color: '#e52222',
+                        weight: 3,
+                        opacity: 1
+                    },
+
+                pointToLayer: (feature, latlng) => {
+                    const p = feature.properties || {};
+
+                    if (item.kind !== 'points') {
+                        return L.circleMarker(latlng, { radius: 4 });
+                    }
+
+                    const time = p.datelbl || p.DATELBL ||
+                        p.fldatelbl || p.FL_DATELBL || 'Forecast position';
+
+                    const rawWind = firstNumber(
+                        p.maxwind, p.MAXWIND, p.vmax, p.VMAX,
+                        p.max_wind, p.MAX_WIND
+                    );
+
+                    const unit = String(
+                        p.windunit || p.WINDUNIT || p.units || p.UNITS || ''
+                    ).toLowerCase();
+
+                    const forecastWind = Number.isFinite(rawWind)
+                        ? Math.round(
+                            unit.includes('kt') || unit.includes('knot')
+                                ? rawWind * 1.15078
+                                : rawWind
+                          ) + ' mph'
+                        : 'Wind not supplied';
+
+                    const icon = L.divIcon({
+                        className: 'forecast-wind-icon',
+                        html: '<span class="forecast-wind-label">' +
+                            escapeHTML(time) + '<br>' +
+                            escapeHTML(forecastWind) + '</span>',
+                        iconSize: [124, 36],
+                        iconAnchor: [62, 18]
+                    });
+
+                    return L.marker(latlng, { icon }).bindPopup(
+                        '<strong>' + escapeHTML(p.stormname || p.STORMNAME || 'NHC forecast') +
+                        '</strong><br>' + escapeHTML(time) + '<br>' +
+                        escapeHTML(forecastWind) +
+                        '<br><small>Official NHC forecast. Values depend on the available data.</small>'
+                    );
+                },
+
+                onEachFeature: (feature, shape) => {
+                    const p = feature.properties || {};
+                    const name = p.stormname || p.STORMNAME || 'Tropical system';
+
+                    if (item.kind === 'cone') {
+                        shape.bindPopup(
+                            '<strong>' + escapeHTML(name) + '</strong><br>' +
+                            'Official NHC forecast cone. It shows track uncertainty, ' +
+                            'not the exact area of impacts.'
+                        );
+                    } else if (item.kind === 'track') {
+                        shape.bindPopup(
+                            '<strong>' + escapeHTML(name) + '</strong><br>' +
+                            'Official NHC forecast track.'
+                        );
+                    }
+                }
+            });
+
+            layer.addTo(liveMap);
+            newLayers.push(layer);
+        }
+
+        // Replace old forecast layers only after this refresh is complete.
+        forecastLayers.forEach(layer => {
+            if (liveMap?.hasLayer(layer)) liveMap.removeLayer(layer);
+        });
+        forecastLayers = newLayers;
+
+    } catch (error) {
+        console.warn('Forecast layers could not be refreshed:', error);
+        // Keep the previous forecast display if a refresh fails.
+        newLayers.forEach(layer => {
+            if (liveMap?.hasLayer(layer)) liveMap.removeLayer(layer);
+        });
+    } finally {
+        loadingForecast = false;
+    }
+}
+
+
+/* ----------------- DRAW LIVE STORMS ----------------- */
+
+function renderMap() {
+    if (!liveMap || !liveMarkers || typeof L === 'undefined') return;
+
+    liveMarkers.clearLayers();
+
+    storms.forEach(storm => {
+        const coords = stormCoordinates(storm);
+        if (!coords) return;
+
+        const category = categoryInfo(storm);
+        const size = category.size;
+
+        const icon = L.divIcon({
+            className: 'storm-div-icon',
+            html:
+                '<div class="storm-pin" style="--storm-color:' +
+                category.color + ';">' +
+                    hurricaneIconHTML(category.label, category.color) +
+                    directionArrowHTML(storm) +
+                '</div>',
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
+            popupAnchor: [0, -size / 2]
+        });
+
+        const popup =
+            '<strong>' + escapeHTML(stormName(storm)) + '</strong><br>' +
+            escapeHTML(stormType(storm)) + '<br>' +
+            'Maximum wind: ' + escapeHTML(windText(storm)) + '<br>' +
+            'Movement: ' + escapeHTML(movementText(storm)) + '<br>' +
+            coords[0].toFixed(2) + '°, ' + coords[1].toFixed(2) + '°';
+
+        L.marker(coords, { icon }).addTo(liveMarkers).bindPopup(popup);
+    });
+}
+
+
+/* ----------------- STORM LIST + DETAILS ----------------- */
+
+function renderDetails(storm) {
+    const detail = $('detail');
+    if (!detail) return;
+
+    if (!storm) {
+        detail.innerHTML =
+            '<p class="eyebrow">STORM DETAILS</p>' +
+            '<p class="detail-placeholder">No active storm is selected.</p>';
+        return;
+    }
+
+    const coords = stormCoordinates(storm);
+    const position = coords
+        ? coords[0].toFixed(2) + '°, ' + coords[1].toFixed(2) + '°'
+        : 'Not reported';
+
+    const advisory = storm.publicAdvisory?.url;
+    const officialURL =
+        typeof advisory === 'string' &&
+        /^https:\/\/www\.nhc\.noaa\.gov\//i.test(advisory)
+            ? advisory
+            : 'https://www.nhc.noaa.gov/';
+
+    detail.innerHTML =
+        '<p class="eyebrow">STORM DETAILS</p>' +
+        '<p class="detail-title">' + escapeHTML(stormName(storm)) + '</p>' +
+        '<div class="detail-grid">' +
+            '<div class="detail-item"><span>CLASSIFICATION</span><strong>' +
+                escapeHTML(stormType(storm)) + '</strong></div>' +
+            '<div class="detail-item"><span>MAX WIND</span><strong>' +
+                escapeHTML(windText(storm)) + '</strong></div>' +
+            '<div class="detail-item"><span>POSITION</span><strong>' +
+                escapeHTML(position) + '</strong></div>' +
+            '<div class="detail-item"><span>MOVEMENT</span><strong>' +
+                escapeHTML(movementText(storm)) + '</strong></div>' +
+        '</div>' +
+        '<p class="detail-placeholder"><a href="' + escapeHTML(officialURL) +
+        '" target="_blank" rel="noopener noreferrer">Official storm information</a></p>';
+}
+
+function renderStormList() {
+    const list = $('storm-list');
+    if (!list) return;
+
+    const count = $('storm-count');
+    if (count) count.textContent = String(storms.length);
+
+    if (!storms.length) {
+        list.innerHTML =
+            '<div class="empty-state">NOAA currently lists no active tropical systems.</div>';
+        renderDetails(null);
+        return;
+    }
+
+    list.innerHTML = storms.map((storm, index) => {
+        const coords = stormCoordinates(storm);
+        const position = coords
+            ? coords[0].toFixed(1) + '°, ' + coords[1].toFixed(1) + '°'
+            : 'Position unavailable';
+
+        const selected = stormId(storm, index) === selectedStormId
+            ? ' selected'
+            : '';
+
+        const category = categoryInfo(storm);
+
+        return '<button type="button" class="storm-card' + selected +
+            '" data-index="' + index + '">' +
+            '<div class="storm-name-row">' +
+                '<span class="storm-name">' + escapeHTML(stormName(storm)) + '</span>' +
+                '<span class="storm-type">' + escapeHTML(category.label) + '</span>' +
+            '</div>' +
+            '<div class="storm-summary">' +
+                '<span>Wind: ' + escapeHTML(windText(storm)) + '</span>' +
+                '<span>' + escapeHTML(position) + '</span>' +
+            '</div>' +
+        '</button>';
+    }).join('');
+
+    list.querySelectorAll('.storm-card').forEach(button => {
+        button.addEventListener('click', () => {
+            const index = Number(button.dataset.index);
+            const storm = storms[index];
+            if (!storm) return;
+
+            selectedStormId = stormId(storm, index);
+            renderStormList();
+            renderDetails(storm);
+
+            const coords = stormCoordinates(storm);
+            if (coords && liveMap) liveMap.flyTo(coords, 5);
+        });
+    });
+}
+
+
+/* ----------------- REFRESH + UNAVAILABLE-DATA FIX ----------------- */
+
+async function loadLive() {
+    if (loadingLive) return;
+    loadingLive = true;
+
+    const button = $('refresh-button');
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Updating…';
+    }
+
+    if (!lastGoodData && $('storm-list')) {
+        $('storm-list').innerHTML =
+            '<div class="loading">Loading NOAA storm data…</div>';
+    }
+
+    try {
+        const freshStorms = await fetchStorms();
+
+        storms = freshStorms.filter(storm =>
+            storm && typeof storm === 'object'
+        );
+        lastGoodData = new Date();
+
+        if (!storms.some((storm, index) =>
+            stormId(storm, index) === selectedStormId
+        )) {
+            selectedStormId = storms.length ? stormId(storms[0], 0) : null;
+        }
+
+        setStatus(
+            'Updated ' + lastGoodData.toLocaleTimeString(),
+            'Last successful live NOAA data fetch'
+        );
+
+        renderStormList();
+
+        const selectedIndex = storms.findIndex((storm, index) =>
+            stormId(storm, index) === selectedStormId
+        );
+        renderDetails(selectedIndex >= 0 ? storms[selectedIndex] : null);
+        renderMap();
+
+    } catch (error) {
+        console.error('StormWatch data refresh failed:', error);
+
+        if (lastGoodData) {
+            // Do not erase good data just because one refresh failed.
+            setStatus(
+                'Refresh failed — showing last good data',
+                'Last successful update: ' + lastGoodData.toLocaleString()
+            );
+
+            renderStormList();
+            renderMap();
+
+            const index = storms.findIndex((storm, i) =>
+                stormId(storm, i) === selectedStormId
+            );
+            renderDetails(index >= 0 ? storms[index] : null);
+        } else {
+            setStatus('Data unavailable', error.message);
+            showListMessage(
+                'Could not reach NOAA live data. Check your connection and try Refresh data again.'
+            );
+            console.error(error);
+        }
+    } finally {
+        loadingLive = false;
+
+        if (button) {
+            button.disabled = false;
+            button.textContent = '↻ Refresh data';
+        }
+    }
+}
+
+
+/* ----------------- STARTUP ----------------- */
+
+function startStormWatch() {
+    initializeMap();
+
+    const button = $('refresh-button');
+    if (button) {
+        button.addEventListener('click', () => {
+            loadLive();
+            loadForecastLayers();
+        });
+    }
+
+    loadLive();
+    loadForecastLayers();
+
+    if (refreshTimer) clearInterval(refreshTimer);
+
+    refreshTimer = setInterval(() => {
+        loadLive();
+        loadForecastLayers();
+    }, REFRESH_INTERVAL);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startStormWatch, { once: true });
+} else {
+    startStormWatch();
+}
