@@ -60,61 +60,49 @@ function fetchWithTimeout(url, timeoutMs = 10000) {
     }).finally(() => clearTimeout(timeoutId));
 }
 
+
 async function fetchStormData() {
     let directError;
 
+    // First, try NOAA directly.
     try {
         const response = await fetchWithTimeout(DATA_URL);
+
         if (!response.ok) {
             throw new Error('NOAA returned HTTP ' + response.status);
         }
+
         return await response.json();
-    } catch (error) {    console.error('Live storm loading failed:', error);
-
-    if (storms.length) {
-        // Keep the last known-good storm data visible.
-        renderStormList();
-        renderLiveMap();
-
-        const selectedIndex = storms.findIndex(
-            (storm, index) => getStormId(storm, index) === selectedStorm
-        );
-
-        if (selectedIndex >= 0) {
-            renderStormDetails(storms[selectedIndex]);
-        }
-    } else {
-        showError(
-            'storm-list',
-            'Could not load live storm data. Check your connection and try again. Details: ' +
-            error.message
+    } catch (error) {
+        directError = error;
+        console.warn(
+            'Direct NOAA request failed; trying backup service:',
+            error
         );
     }
 
-    if (lastUpdated) {
-        lastUpdated.textContent = lastSuccessfulRefresh
-            ? lastSuccessfulRefresh.toLocaleTimeString() + ' (stale)'
-            : 'Unavailable';
-
-        lastUpdated.title =
-            'The latest refresh failed; the displayed time is the last successful fetch.';
-    }
-    }
-
+    // If NOAA fails, try the backup service.
     try {
         const response = await fetchWithTimeout(BACKUP_URL);
+
         if (!response.ok) {
-            throw new Error('Backup service returned HTTP ' + response.status);
+            throw new Error(
+                'Backup service returned HTTP ' + response.status
+            );
         }
+
         return await response.json();
     } catch (backupError) {
         throw new Error(
             'NOAA and backup requests both failed. ' +
-            'Direct request: ' + (directError?.message || 'unknown error') +
-            '; backup request: ' + (backupError?.message || 'unknown error')
+            'Direct request: ' +
+            (directError?.message || 'unknown error') +
+            '; backup request: ' +
+            (backupError?.message || 'unknown error')
         );
     }
 }
+
 
 function parseCoordinate(value) {
     if (value === null || value === undefined || value === '') return NaN;
