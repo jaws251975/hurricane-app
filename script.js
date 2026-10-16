@@ -385,7 +385,12 @@ function renderStormDetails(storm) {
             coordinates
                 ? coordinates.map(n => n.toFixed(2) + '°').join(', ')
                 : 'Not reported'
-        ) + '</strong></div></div>' +
+        ) + 
+'</strong></div>' +
+'<div class="detail-item"><span>MOVEMENT</span>' +
+'<strong>' + escapeHTML(getMovement(storm)) +
+'</strong></div></div>' +
+
         '<p class="detail-placeholder">' +
         '<a href="' + escapeHTML(
             advisory || 'https://www.nhc.noaa.gov/'
