@@ -1,33 +1,24 @@
 
 'use strict';
 
+/*
+ * StormWatch live tracker
+ * Data: NOAA / National Hurricane Center CurrentStorms.json
+ * Map: Leaflet + OpenStreetMap
+ */
+
 const DATA_URL = 'https://www.nhc.noaa.gov/CurrentStorms.json';
+const BACKUP_URL =
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(DATA_URL);
 
 const $ = id => document.getElementById(id);
-
-async function fetchWithTimeout(url) {
-    const controller = new AbortController();
-
-    const timeout = setTimeout(() => {
-        controller.abort();
-    }, 10000);
-
-    try {
-        return await fetch(url, {
-            cache: 'no-store',
-            signal: controller.signal
-        });
-    } finally {
-        clearTimeout(timeout);
-    }
-}
-
 
 let storms = [];
 let selectedStorm = null;
 let liveMap = null;
 let liveMarkers = null;
 let loadingLive = false;
+let refreshTimer = null;
 
 function escapeHTML(value) {
     return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -43,24 +34,67 @@ function numberValue(value) {
     if (value === null || value === undefined || value === '') {
         return NaN;
     }
-
     const number = Number(value);
     return Number.isFinite(number) ? number : NaN;
 }
 
+function firstNumber(...values) {
+    for (const value of values) {
+        const number = numberValue(value);
+        if (Number.isFinite(number)) return number;
+    }
+    return NaN;
+}
 
+function fetchWithTimeout(url, timeoutMs = 10000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    return fetch(url, {
+        cache: 'no-store',
+        signal: controller.signal
+    }).finally(() => clearTimeout(timeoutId));
+}
+
+async function fetchStormData() {
+    let directError;
+
+    try {
+        const response = await fetchWithTimeout(DATA_URL);
+        if (!response.ok) {
+            throw new Error('NOAA returned HTTP ' + response.status);
+        }
+        return await response.json();
+    } catch (error) {
+        directError = error;
+        console.warn('Direct NOAA request failed; trying backup:', error);
+    }
+
+    try {
+        const response = await fetchWithTimeout(BACKUP_URL);
+        if (!response.ok) {
+            throw new Error('Backup service returned HTTP ' + response.status);
+        }
+        return await response.json();
+    } catch (backupError) {
+        throw new Error(
+            'NOAA and backup requests both failed. ' +
+            'Direct request: ' + (directError?.message || 'unknown error') +
+            '; backup request: ' + (backupError?.message || 'unknown error')
+        );
+    }
+}
 
 function parseCoordinate(value) {
-    if (value === null || value === undefined || value === '') {
-        return NaN;
+    if (value === null || value === undefined || value === '') return NaN;
+
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : NaN;
     }
 
     const text = String(value).trim().toUpperCase();
     const match = text.match(/^(-?\d+(?:\.\d+)?)\s*°?\s*([NSEW])?$/);
-
-    if (!match) {
-        return NaN;
-    }
+    if (!match) return NaN;
 
     let number = Number(match[1]);
     const direction = match[2];
@@ -70,20 +104,22 @@ function parseCoordinate(value) {
     } else if (direction === 'N' || direction === 'E') {
         number = Math.abs(number);
     }
-
     return number;
 }
 
 function getCoordinates(storm) {
- const lat = numberValue(
-    storm.latitude_numeric ?? storm.latitudeNumeric ??
-    storm.latitude ?? storm.lat
-);
-
-const lon = numberValue(
-    storm.longitude_numeric ?? storm.longitudeNumeric ??
-    storm.longitude ?? storm.lon
-);
+    const lat = parseCoordinate(
+        storm.latitude_numeric ??
+        storm.latitudeNumeric ??
+        storm.latitude ??
+        storm.lat
+    );
+    const lon = parseCoordinate(
+        storm.longitude_numeric ??
+        storm.longitudeNumeric ??
+        storm.longitude ??
+        storm.lon
+    );
 
     if (
         Number.isFinite(lat) &&
@@ -93,24 +129,23 @@ const lon = numberValue(
     ) {
         return [lat, lon];
     }
-
     return null;
 }
-
 
 function getStormName(storm) {
     return storm.name || storm.stormName || 'Unnamed system';
 }
 
 function getStormId(storm, index) {
-    return String(storm.id || storm.stormId || getStormName(storm) + index);
+    return String(storm.id || storm.stormId || getStormName(storm) + '-' + index);
+}
+
+function getRawType(storm) {
+    return String(storm.classification || storm.type || '').trim().toUpperCase();
 }
 
 function getStormType(storm) {
-    const type = String(
-        storm.classification || storm.type || 'Tropical system'
-    ).toUpperCase();
-
+    const type = getRawType(storm);
     const types = {
         TD: 'Tropical Depression',
         TS: 'Tropical Storm',
@@ -120,170 +155,145 @@ function getStormType(storm) {
         EX: 'Extratropical',
         LO: 'Low',
         SD: 'Subtropical Depression',
-        SS: 'Subtropical Storm'
+        SS: 'Subtropical Storm',
+        DB: 'Disturbance'
     };
-
-    return types[type] || type;
+    return types[type] || type || 'Tropical system';
 }
 
+function getWindKnots(storm) {
+    return firstNumber(storm.intensity, storm.maxWind, storm.windSpeed);
+}
 
 function getWind(storm) {
-    const wind = numberValue(
-        storm.intensity ?? storm.maxWind ?? storm.windSpeed
-    );
+    const knots = getWindKnots(storm);
+    if (!Number.isFinite(knots)) return 'Not reported';
+    return Math.round(knots * 1.15078) + ' mph';
+}
 
-    if (!Number.isFinite(wind)) {
-        return 'Not reported';
+function getMovementDirection(storm) {
+    const direction = firstNumber(
+        storm.movementDir,
+        storm.movementDirection,
+        storm.directionDegrees,
+        typeof storm.movement === 'object'
+            ? (storm.movement.directionDegrees ?? storm.movement.degrees)
+            : NaN
+    );
+    if (Number.isFinite(direction) && direction >= 0 && direction <= 360) {
+        return ((direction % 360) + 360) % 360;
     }
 
-    return Math.round(wind * 1.15078) + ' mph';
+    const textDirection =
+        typeof storm.movement === 'string' ? storm.movement :
+        typeof storm.movementDirection === 'string' ? storm.movementDirection :
+        typeof storm.direction === 'string' ? storm.direction : '';
+
+    const map = {
+        N: 0, NNE: 22.5, NE: 45, ENE: 67.5, E: 90,
+        ESE: 112.5, SE: 135, SSE: 157.5, S: 180,
+        SSW: 202.5, SW: 225, WSW: 247.5, W: 270,
+        WNW: 292.5, NW: 315, NNW: 337.5
+    };
+    const key = textDirection.trim().toUpperCase();
+    return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : NaN;
+}
+
+function compassDirection(degrees) {
+    if (!Number.isFinite(degrees)) return 'Not reported';
+    const directions = [
+        'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+        'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'
+    ];
+    return directions[Math.round(degrees / 22.5) % 16];
+}
+
+function getMovementSpeed(storm) {
+    const speed = firstNumber(
+        storm.movementSpeed,
+        storm.movement_speed,
+        typeof storm.movement === 'object' ? storm.movement.speed : NaN
+    );
+    return Number.isFinite(speed) ? speed : NaN;
 }
 
 function getMovement(storm) {
-    const movement =
-        storm.movement ??
-        storm.movementDirection ??
-        storm.direction;
+    const direction = getMovementDirection(storm);
+    const speed = getMovementSpeed(storm);
 
-    if (typeof movement === 'string' && movement.trim()) {
-        return movement.trim();
+    if (Number.isFinite(direction) && Number.isFinite(speed)) {
+        return compassDirection(direction) + ' at ' + Math.round(speed) + ' mph';
     }
-
-    if (movement && typeof movement === 'object') {
-        const direction = movement.direction ?? movement.dir;
-        const speed = movement.speed;
-
-        if (direction && speed !== undefined) {
-            return direction + ' at ' + speed + ' mph';
-        }
-
-        if (direction) {
-            return direction;
-        }
-    }
-
-    return 'Not reported';
-}
-
-
-function showError(elementId, message) {
-    const element = $(elementId);
-
-    if (element) {
-        element.innerHTML =
-            '<div class="error-state">' +
-            escapeHTML(message) +
-            '</div>';
-    }
-}
-
-function initializeMaps() {
-    if (typeof L === 'undefined') {
-        showError('storm-list', 'The map library did not load. Please reload the page.');
-        return;
-    }
-
-    const mapElement = $('map');
-
-    if (mapElement && !liveMap) {
-        liveMap = L.map(mapElement).setView([22, -65], 3);
-
-        L.tileLayer(
-            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            {
-                maxZoom: 18,
-                attribution: '&copy; OpenStreetMap contributors'
-            }
-        ).addTo(liveMap);
-
-        liveMarkers = L.layerGroup().addTo(liveMap);
-    }
+    if (Number.isFinite(direction)) return compassDirection(direction);
+    return 'Not reported by feed';
 }
 
 function getStormCategory(storm) {
-    const type = String(
-        storm.classification || storm.type || ''
-    ).toUpperCase();
-
-    const wind = numberValue(
-        storm.intensity ?? storm.maxWind ?? storm.windSpeed
-    );
+    const type = getRawType(storm);
+    const wind = getWindKnots(storm);
 
     if (type === 'TD' || type === 'SD') {
-        return {
-            label: 'TD',
-            name: getStormType(storm),
-            color: '#22c55e',
-            size: 36
-        };
+        return { label: type, name: getStormType(storm), color: '#22c55e', size: 38 };
     }
-
     if (type === 'TS' || type === 'SS') {
-        return {
-            label: 'TS',
-            name: getStormType(storm),
-            color: '#22c55e',
-            size: 39
-        };
+        return { label: type, name: getStormType(storm), color: '#22c55e', size: 42 };
     }
 
-    if (type === 'HU' && Number.isFinite(wind)) {
-        if (wind >= 137) {
-            return {
-                label: '5',
-                name: 'Category 5 Hurricane',
-                color: '#7f1d1d',
-                size: 60
-            };
-        }
-
-        if (wind >= 113) {
-            return {
-                label: '4',
-                name: 'Category 4 Hurricane',
-                color: '#dc2626',
-                size: 55
-            };
-        }
-
-        if (wind >= 96) {
-            return {
-                label: '3',
-                name: 'Category 3 Hurricane',
-                color: '#f87171',
-                size: 50
-            };
-        }
-
-        if (wind >= 83) {
-            return {
-                label: '2',
-                name: 'Category 2 Hurricane',
-                color: '#f97316',
-                size: 45
-            };
-        }
-
-        if (wind >= 64) {
-            return {
-                label: '1',
-                name: 'Category 1 Hurricane',
-                color: '#facc15',
-                size: 40
-            };
-        }
+    if ((type === 'HU' || type === 'TY') && Number.isFinite(wind)) {
+        if (wind >= 137) return { label: '5', name: 'Category 5 Hurricane', color: '#7f1d1d', size: 56 };
+        if (wind >= 113) return { label: '4', name: 'Category 4 Hurricane', color: '#dc2626', size: 52 };
+        if (wind >= 96) return { label: '3', name: 'Category 3 Hurricane', color: '#f87171', size: 48 };
+        if (wind >= 83) return { label: '2', name: 'Category 2 Hurricane', color: '#f97316', size: 44 };
+        if (wind >= 64) return { label: '1', name: 'Category 1 Hurricane', color: '#facc15', size: 40 };
     }
 
-    return {
-        label: type || '?',
-        name: getStormType(storm),
-        color: '#94a3b8',
-        size: 36
-    };
+    return { label: type || '?', name: getStormType(storm), color: '#94a3b8', size: 38 };
+}
+
+function showError(elementId, message) {
+    const element = $(elementId);
+    if (!element) return;
+    element.innerHTML =
+        '<div class="error-state">' + escapeHTML(message) + '</div>';
+}
+
+function initializeMaps() {
+    const mapElement = $('map');
+    if (!mapElement) return;
+
+    if (typeof L === 'undefined') {
+        showError('storm-list',
+            'The map library did not load. Check your connection and reload the page.');
+        return;
+    }
+
+    if (liveMap) return;
+
+    try {
+        liveMap = L.map(mapElement, {
+            zoomControl: true,
+            preferCanvas: true
+        }).setView([22, -65], 3);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '&copy; OpenStreetMap contributors',
+            crossOrigin: true
+        }).addTo(liveMap);
+
+        liveMarkers = L.layerGroup().addTo(liveMap);
+
+        setTimeout(() => {
+            if (liveMap) liveMap.invalidateSize();
+        }, 250);
+    } catch (error) {
+        console.error('Map initialization failed:', error);
+        showError('storm-list', 'The map could not start: ' + error.message);
+    }
 }
 
 function renderLiveMap() {
-    if (!liveMarkers) return;
+    if (!liveMap || !liveMarkers || typeof L === 'undefined') return;
 
     liveMarkers.clearLayers();
 
@@ -293,39 +303,40 @@ function renderLiveMap() {
 
         const category = getStormCategory(storm);
         const size = category.size;
+        const direction = getMovementDirection(storm);
+        const arrowHTML = Number.isFinite(direction)
+            ? '<span class="storm-direction-arrow" title="Direction of movement" ' +
+              'style="transform:rotate(' + direction + 'deg)">↑</span>'
+            : '';
 
         const icon = L.divIcon({
             className: 'storm-div-icon',
             html:
                 '<div class="storm-pin" style="--storm-color:' +
-                category.color +
-                ';width:' + size + 'px;height:' + size + 'px">' +
-
+                category.color + ';width:' + size + 'px;height:' + size + 'px">' +
                 '<svg class="storm-swirl" viewBox="0 0 64 64" aria-hidden="true">' +
-                '<circle cx="32" cy="32" r="27" fill="none" stroke="white" stroke-width="2.5" stroke-dasharray="28 8 12 7 20 10" stroke-linecap="round"/>' +
-                '<circle cx="32" cy="32" r="20" fill="none" stroke="white" stroke-width="2.5" stroke-dasharray="18 7 25 9 10 6" stroke-linecap="round"/>' +
-                '<circle cx="32" cy="32" r="13" fill="none" stroke="white" stroke-width="2.5" stroke-dasharray="12 6 18 7" stroke-linecap="round"/>' +
+                '<circle cx="32" cy="32" r="27" fill="none" stroke="white" stroke-width="3" stroke-dasharray="28 8 12 7 20 10" stroke-linecap="round"/>' +
+                '<circle cx="32" cy="32" r="20" fill="none" stroke="white" stroke-width="3" stroke-dasharray="18 7 25 9 10 6" stroke-linecap="round"/>' +
+                '<circle cx="32" cy="32" r="13" fill="none" stroke="white" stroke-width="3" stroke-dasharray="12 6 18 7" stroke-linecap="round"/>' +
                 '</svg>' +
-
+                arrowHTML +
                 '<span class="storm-pin-label">' +
-                escapeHTML(category.label) +
-                '</span></div>',
+                escapeHTML(category.label) + '</span></div>',
             iconSize: [size, size],
             iconAnchor: [size / 2, size / 2],
             popupAnchor: [0, -size / 2]
         });
 
+        const popup =
+            '<strong>' + escapeHTML(getStormName(storm)) + '</strong><br>' +
+            escapeHTML(category.name) + '<br>' +
+            'Maximum wind: ' + escapeHTML(getWind(storm)) + '<br>' +
+            'Movement: ' + escapeHTML(getMovement(storm)) + '<br>' +
+            (coordinates[0].toFixed(2) + '°, ' + coordinates[1].toFixed(2) + '°');
+
         L.marker(coordinates, { icon })
             .addTo(liveMarkers)
-            .bindPopup(
-                
-'<strong>' + escapeHTML(getStormName(storm)) +
-'</strong><br>' +
-escapeHTML(category.name) + '<br>' +
-'Wind: ' + escapeHTML(getWind(storm)) + '<br>' +
-'Movement: ' + escapeHTML(getMovement(storm))
-
-            );
+            .bindPopup(popup);
     });
 }
 
@@ -335,44 +346,31 @@ function renderStormList() {
 
     if (!storms.length) {
         list.innerHTML =
-            '<div class="empty-state">' +
-            'No active tropical systems are listed in the NOAA feed.' +
-            '</div>';
-
+            '<div class="empty-state">NOAA currently lists no active tropical systems.</div>';
         if ($('detail')) {
             $('detail').innerHTML =
                 '<p class="eyebrow">STORM DETAILS</p>' +
-                '<p class="detail-placeholder">No active storms to display.</p>';
+                '<p class="detail-placeholder">There are no active storms to select right now.</p>';
         }
-
         return;
     }
 
     list.innerHTML = storms.map((storm, index) => {
         const coordinates = getCoordinates(storm);
-
         const position = coordinates
-            ? coordinates.map(n => n.toFixed(1) + '°').join(', ')
+            ? coordinates[0].toFixed(1) + '°, ' + coordinates[1].toFixed(1) + '°'
             : 'Position unavailable';
-
         const selected =
             getStormId(storm, index) === selectedStorm ? ' selected' : '';
 
-        return (
-            '<button class="storm-card' + selected +
-            '" data-index="' + index + '">' +
+        return '<button class="storm-card' + selected + '" data-index="' + index + '">' +
             '<div class="storm-name-row">' +
-            '<span class="storm-name">' +
-            escapeHTML(getStormName(storm)) +
-            '</span>' +
-            '<span class="storm-type">' +
-            escapeHTML(getStormType(storm)) +
-            '</span></div>' +
-            '<div class="storm-summary">' +
+            '<span class="storm-name">' + escapeHTML(getStormName(storm)) + '</span>' +
+            '<span class="storm-type">' + escapeHTML(getStormType(storm)) + '</span>' +
+            '</div><div class="storm-summary">' +
             '<span>Wind: ' + escapeHTML(getWind(storm)) + '</span>' +
             '<span>' + escapeHTML(position) + '</span>' +
-            '</div></button>'
-        );
+            '</div></button>';
     }).join('');
 
     list.querySelectorAll('.storm-card').forEach(button => {
@@ -384,37 +382,29 @@ function renderStormList() {
 
 function renderStormDetails(storm) {
     const detail = $('detail');
-    if (!detail) return;
+    if (!detail || !storm) return;
 
     const coordinates = getCoordinates(storm);
-    const advisory = storm.publicAdvisory?.url;
+    const advisory = storm.publicAdvisory && storm.publicAdvisory.url;
+    const position = coordinates
+        ? coordinates[0].toFixed(2) + '°, ' + coordinates[1].toFixed(2) + '°'
+        : 'Not reported';
 
     detail.innerHTML =
         '<p class="eyebrow">STORM DETAILS</p>' +
-        '<p class="detail-title">' +
-        escapeHTML(getStormName(storm)) +
-        '</p>' +
+        '<p class="detail-title">' + escapeHTML(getStormName(storm)) + '</p>' +
         '<div class="detail-grid">' +
-        '<div class="detail-item"><span>CLASSIFICATION</span>' +
-        '<strong>' + escapeHTML(getStormType(storm)) + '</strong></div>' +
-        '<div class="detail-item"><span>MAX WIND</span>' +
-        '<strong>' + escapeHTML(getWind(storm)) + '</strong></div>' +
-        '<div class="detail-item"><span>POSITION</span>' +
-        '<strong>' + escapeHTML(
-            coordinates
-                ? coordinates.map(n => n.toFixed(2) + '°').join(', ')
-                : 'Not reported'
-        ) + 
-'</strong></div>' +
-'<div class="detail-item"><span>MOVEMENT</span>' +
-'<strong>' + escapeHTML(getMovement(storm)) +
-'</strong></div></div>' +
-
-        '<p class="detail-placeholder">' +
-        '<a href="' + escapeHTML(
-            advisory || 'https://www.nhc.noaa.gov/'
-        ) + '" target="_blank" rel="noopener noreferrer">' +
-        'Official storm information</a></p>';
+        '<div class="detail-item"><span>CLASSIFICATION</span><strong>' +
+        escapeHTML(getStormType(storm)) + '</strong></div>' +
+        '<div class="detail-item"><span>MAX WIND</span><strong>' +
+        escapeHTML(getWind(storm)) + '</strong></div>' +
+        '<div class="detail-item"><span>POSITION</span><strong>' +
+        escapeHTML(position) + '</strong></div>' +
+        '<div class="detail-item"><span>MOVEMENT</span><strong>' +
+        escapeHTML(getMovement(storm)) + '</strong></div>' +
+        '</div><p class="detail-placeholder"><a href="' +
+        escapeHTML(advisory || 'https://www.nhc.noaa.gov/') +
+        '" target="_blank" rel="noopener noreferrer">Official storm information</a></p>';
 }
 
 function selectStorm(index) {
@@ -422,121 +412,72 @@ function selectStorm(index) {
     if (!storm) return;
 
     selectedStorm = getStormId(storm, index);
-
     renderStormList();
     renderStormDetails(storm);
 
     const coordinates = getCoordinates(storm);
-
     if (coordinates && liveMap) {
         liveMap.flyTo(coordinates, 5);
     }
 }
-
-
 
 async function loadLive() {
     if (loadingLive) return;
     loadingLive = true;
 
     const button = $('refresh-button');
+    const lastUpdated = $('last-updated');
 
     if (button) {
         button.disabled = true;
-        button.textContent = 'Updating...';
+        button.textContent = 'Updating…';
     }
-
-    if ($('storm-list') && !storms.length) {
-        $('storm-list').textContent = 'Loading NOAA data...';
+    if (!storms.length && $('storm-list')) {
+        $('storm-list').innerHTML = '<div class="loading">Loading NOAA storm data…</div>';
     }
 
     try {
-        let data;
+        const data = await fetchStormData();
 
-        // First, try loading NOAA directly.
-        try {
-            const response = await fetchWithTimeout(DATA_URL)
-            });
-
-            if (!response.ok) {
-                throw new Error('NOAA HTTP ' + response.status);
-            }
-
-            data = await response.json();
-
-        } catch (directError) {
-            console.warn('Direct NOAA request failed:', directError);
-
-            // Try the backup service if NOAA cannot be reached.
-            const backupURL =
-                'https://api.allorigins.win/raw?url=' +
-                encodeURIComponent(DATA_URL);
-
-            const backupResponse = await fetchWithTimeout(backupURL)
-            });
-
-            if (!backupResponse.ok) {
-                throw new Error(
-                    'Backup request failed: HTTP ' +
-                    backupResponse.status
-                );
-            }
-
-            data = await backupResponse.json();
-        }
-
-        // Verify that the response contains the expected storm list.
         if (!data || !Array.isArray(data.activeStorms)) {
-            throw new Error(
-                'Unexpected NOAA data format: activeStorms is missing.'
-            );
+            throw new Error('The NOAA response did not contain an activeStorms array.');
         }
 
-        storms = data.activeStorms;
+        storms = data.activeStorms.filter(storm => storm && typeof storm === 'object');
 
         if ($('storm-count')) {
-            $('storm-count').textContent = storms.length;
+            $('storm-count').textContent = String(storms.length);
         }
-
-        if ($('last-updated')) {
-            $('last-updated').textContent =
-                new Date().toLocaleTimeString();
+        if (lastUpdated) {
+            lastUpdated.textContent = new Date().toLocaleTimeString();
         }
 
         const selectedIndex = storms.findIndex(
-            (storm, index) =>
-                getStormId(storm, index) === selectedStorm
+            (storm, index) => getStormId(storm, index) === selectedStorm
         );
 
-        if (storms.length > 0) {
-            const index = selectedIndex >= 0
-                ? selectedIndex
-                : 0;
-
+        if (storms.length) {
+            const index = selectedIndex >= 0 ? selectedIndex : 0;
             selectedStorm = getStormId(storms[index], index);
             renderStormList();
             renderStormDetails(storms[index]);
         } else {
+            selectedStorm = null;
             renderStormList();
         }
 
         renderLiveMap();
-
     } catch (error) {
-        console.error('Live tracker error:', error);
-
+        console.error('StormWatch data error:', error);
         showError(
             'storm-list',
-            'Could not load storm data: ' + error.message
+            'Could not load live storm data. ' +
+            'Check your internet connection and try Refresh data again. ' +
+            'Details: ' + error.message
         );
-
-        if ($('last-updated')) {
-            $('last-updated').textContent = 'Unavailable';
-        }
-
+        if (lastUpdated) lastUpdated.textContent = 'Unavailable';
     } finally {
         loadingLive = false;
-
         if (button) {
             button.disabled = false;
             button.textContent = '↻ Refresh data';
@@ -546,7 +487,6 @@ async function loadLive() {
 
 function initializeEvents() {
     const refreshButton = $('refresh-button');
-
     if (refreshButton) {
         refreshButton.addEventListener('click', loadLive);
     }
@@ -555,18 +495,15 @@ function initializeEvents() {
 function startStormWatch() {
     initializeMaps();
     initializeEvents();
+
     loadLive();
 
-    // Refresh the live feed every five minutes.
-    setInterval(loadLive, 5 * 60 * 1000);
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(loadLive, 5 * 60 * 1000);
 }
 
 if (document.readyState === 'loading') {
-    document.addEventListener(
-        'DOMContentLoaded',
-        startStormWatch,
-        { once: true }
-    );
+    document.addEventListener('DOMContentLoaded', startStormWatch, { once: true });
 } else {
     startStormWatch();
 }
