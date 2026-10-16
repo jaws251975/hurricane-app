@@ -462,25 +462,32 @@ function getMovement(storm) {
    HURRICANE-SHAPED SWIRL
    ========================================================= */
 
-const swirlHTML = `
-<svg class="storm-swirl" viewBox="0 0 64 64" aria-hidden="true">
-    <g fill="white">
-        <path d="M29 4 C43 3 55 14 54 27 C53 35 48 40 42 43 C47 33 46 23 38 16 C33 11 27 9 20 9 C23 6 26 5 29 4Z"/>
-        <path d="M58 30 C61 43 52 56 39 57 C31 58 25 54 21 48 C31 52 41 49 46 41 C50 36 52 29 51 22 C55 24 57 27 58 30Z"/>
-        <path d="M35 60 C22 62 9 53 8 40 C7 32 11 26 17 22 C13 32 16 42 24 47 C29 51 36 52 43 50 C41 55 38 58 35 60Z"/>
-    </g>
-    <g fill="none" stroke="white" stroke-width="1.7"
-       stroke-linecap="round" stroke-linejoin="round">
-        <path d="M42 43 Q54 41 55 57"/>
-        <path d="M21 48 Q8 51 8 36"/>
-        <path d="M38 16 Q43 5 27 4"/>
-        <path d="M46 24 Q52 18 57 21"/>
-        <path d="M23 20 Q17 17 13 22"/>
-        <path d="M44 49 Q52 50 49 56"/>
-    </g>
-    <circle cx="32" cy="32" r="6" fill="white"/>
-</svg>
-`;
+
+function swirlHTML() {
+  return `
+    <svg class="hurricane-symbol"
+         viewBox="0 0 64 64"
+         aria-hidden="true">
+      <!-- Three separate, clearly visible spiral branches -->
+      <g fill="none"
+         stroke="#e52222"
+         stroke-width="7"
+         stroke-linecap="round"
+         stroke-linejoin="round">
+        <path d="M31 23 C20 12, 7 17, 9 28 C10 36, 20 37, 25 31"/>
+        <path d="M40 31 C53 22, 59 33, 52 41 C48 46, 41 43, 39 39"/>
+        <path d="M30 41 C29 53, 17 57, 14 48 C12 43, 17 39, 22 40"/>
+      </g>
+
+      <!-- Clear center so the category remains readable -->
+      <circle cx="32" cy="32" r="11"
+              fill="#ffffff"
+              stroke="#e52222"
+              stroke-width="3"/>
+    </svg>
+  `;
+}
+
 
 
 /* =========================================================
