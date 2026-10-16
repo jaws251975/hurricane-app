@@ -463,29 +463,46 @@ function getMovement(storm) {
    ========================================================= */
 
 
-function swirlHTML() {
-  return `
-    <svg class="hurricane-symbol"
-         viewBox="0 0 64 64"
-         aria-hidden="true">
-      <!-- Three separate, clearly visible spiral branches -->
-      <g fill="none"
-         stroke="#e52222"
-         stroke-width="7"
-         stroke-linecap="round"
-         stroke-linejoin="round">
-        <path d="M31 23 C20 12, 7 17, 9 28 C10 36, 20 37, 25 31"/>
-        <path d="M40 31 C53 22, 59 33, 52 41 C48 46, 41 43, 39 39"/>
-        <path d="M30 41 C29 53, 17 57, 14 48 C12 43, 17 39, 22 40"/>
-      </g>
 
-      <!-- Clear center so the category remains readable -->
-      <circle cx="32" cy="32" r="11"
-              fill="#ffffff"
-              stroke="#e52222"
-              stroke-width="3"/>
-    </svg>
-  `;
+
+function swirlHTML(categoryLabel, categoryColor) {
+    const label = escapeHTML(categoryLabel || '?');
+    const centerColor = categoryColor || '#dc2626';
+
+    return `
+        <svg class="hurricane-symbol"
+             viewBox="0 0 64 64"
+             role="img"
+             aria-label="Hurricane marker ${label}">
+
+            <!-- Four distinct hurricane branches -->
+            <g fill="none"
+               stroke="#e52222"
+               stroke-width="7"
+               stroke-linecap="round"
+               stroke-linejoin="round">
+
+                <path d="M27 22 C20 13 10 15 9 23 C8 30 15 34 22 29"/>
+                <path d="M41 26 C50 20 57 26 54 33 C52 39 45 39 41 35"/>
+                <path d="M37 42 C43 51 36 58 29 54 C23 51 25 44 30 41"/>
+                <path d="M22 38 C13 44 7 38 10 31"/>
+
+            </g>
+
+            <!-- Category stays visible in the center -->
+            <circle cx="32" cy="32" r="12.5"
+                    fill="#ffffff"
+                    stroke="${centerColor}"
+                    stroke-width="3.5"/>
+
+            <text x="32" y="36.5"
+                  text-anchor="middle"
+                  font-family="Arial, Helvetica, sans-serif"
+                  font-size="${label.length > 2 ? 10 : 14}"
+                  font-weight="900"
+                  fill="#111827">${label}</text>
+        </svg>
+    `;
 }
 
 
