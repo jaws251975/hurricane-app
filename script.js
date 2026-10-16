@@ -30,12 +30,38 @@ function numberValue(value) {
     return Number.isFinite(number) ? number : NaN;
 }
 
+
+
+function parseCoordinate(value) {
+    if (value === null || value === undefined || value === '') {
+        return NaN;
+    }
+
+    const text = String(value).trim().toUpperCase();
+    const match = text.match(/^(-?\d+(?:\.\d+)?)\s*°?\s*([NSEW])?$/);
+
+    if (!match) {
+        return NaN;
+    }
+
+    let number = Number(match[1]);
+    const direction = match[2];
+
+    if (direction === 'S' || direction === 'W') {
+        number = -Math.abs(number);
+    } else if (direction === 'N' || direction === 'E') {
+        number = Math.abs(number);
+    }
+
+    return number;
+}
+
 function getCoordinates(storm) {
-    const lat = numberValue(
+    const lat = parseCoordinate(
         storm.latitudeNumeric ?? storm.latitude ?? storm.lat
     );
 
-    const lon = numberValue(
+    const lon = parseCoordinate(
         storm.longitudeNumeric ?? storm.longitude ?? storm.lon
     );
 
@@ -50,6 +76,7 @@ function getCoordinates(storm) {
 
     return null;
 }
+
 
 function getStormName(storm) {
     return storm.name || storm.stormName || 'Unnamed system';
