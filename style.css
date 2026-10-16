@@ -421,14 +421,28 @@ footer {
   line-height: 1;
 }
 
+
 .storm-swirl {
   position: absolute;
   inset: 4%;
   width: 92%;
   height: 92%;
-  opacity: .48;
+  opacity: 0.9;
   pointer-events: none;
+  transform-origin: center center;
+  animation: hurricane-spin 4s linear infinite;
 }
+
+@keyframes hurricane-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 
 .storm-pin-label {
   position: relative;
