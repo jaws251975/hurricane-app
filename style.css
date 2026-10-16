@@ -398,7 +398,46 @@ footer a { color: var(--cyan); }
 
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #102338; color: #edf5ff; }
 
-.storm-pin { width: 15px; height: 15px; border-radius: 50%; background: var(--orange); border: 3px solid white; }
+
+.storm-div-icon {
+    background: transparent;
+    border: 0;
+}
+
+.storm-pin {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--storm-color, #22c55e);
+    border: 2px solid white;
+    box-shadow:
+        0 0 0 3px #071525bb,
+        0 0 16px var(--storm-color, #22c55e);
+    color: white;
+    font-family: 'DM Mono', monospace;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.storm-swirl {
+    position: absolute;
+    inset: 4%;
+    width: 92%;
+    height: 92%;
+    opacity: 0.45;
+}
+
+.storm-pin-label {
+    position: relative;
+    z-index: 1;
+    font-size: 13px;
+    text-align: center;
+    text-shadow: 0 1px 3px #000;
+}
+
 
 @media(max-width:950px) { .history-grid { grid-template-columns: 1fr; } .results-list { max-height: 350px; } }
 
