@@ -318,11 +318,13 @@ function renderLiveMap() {
             html:
                 '<div class="storm-pin" style="--storm-color:' +
                 category.color + ';width:' + size + 'px;height:' + size + 'px">' +
-                '<svg class="storm-swirl" viewBox="0 0 64 64" aria-hidden="true">' +
-                '<circle cx="32" cy="32" r="27" fill="none" stroke="white" stroke-width="3" stroke-dasharray="28 8 12 7 20 10" stroke-linecap="round"/>' +
-                '<circle cx="32" cy="32" r="20" fill="none" stroke="white" stroke-width="3" stroke-dasharray="18 7 25 9 10 6" stroke-linecap="round"/>' +
-                '<circle cx="32" cy="32" r="13" fill="none" stroke="white" stroke-width="3" stroke-dasharray="12 6 18 7" stroke-linecap="round"/>' +
-                '</svg>' +
+                '<svg  
+'<path d="M29 4 C43 3 55 14 54 27 C53 35 48 40 42 43 C47 33 46 23 38 16 C33 11 27 9 20 9 C23 6 26 5 29 4 Z" fill="white"/>' +
+'<path d="M58 30 C61 43 52 56 39 57 C31 58 25 54 21 48 C31 52 41 49 46 41 C50 36 52 29 51 22 C55 24 57 27 58 30 Z" fill="white"/>' +
+'<path d="M35 60 C22 62 9 53 8 40 C7 32 11 26 17 22 C13 32 16 42 24 47 C29 51 36 52 43 50 C41 55 38 58 35 60 Z" fill="white"/>' +
+'<circle cx="32" cy="32" r="6" fill="white"/>' +
+'</svg>' +
+
                 arrowHTML +
                 '<span class="storm-pin-label">' +
                 escapeHTML(category.label) + '</span></div>',
