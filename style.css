@@ -422,21 +422,27 @@ footer a { color: var(--cyan); }
     line-height: 1;
 }
 
+
 .storm-swirl {
     position: absolute;
     inset: 4%;
     width: 92%;
     height: 92%;
-    opacity: 0.45;
+    opacity: 0.55;
+    pointer-events: none;
 }
 
 .storm-pin-label {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     font-size: 13px;
+    font-weight: 800;
     text-align: center;
+    color: white;
     text-shadow: 0 1px 3px #000;
+    background: transparent;
 }
+
 
 
 @media(max-width:950px) { .history-grid { grid-template-columns: 1fr; } .results-list { max-height: 350px; } }
