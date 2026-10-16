@@ -316,6 +316,7 @@ const swirlHTML = `
   </svg>
 `;
 
+
 function renderLiveMap() {
     if (!liveMap || !liveMarkers || typeof L === 'undefined') return;
 
@@ -328,35 +329,22 @@ function renderLiveMap() {
         const category = getStormCategory(storm);
         const size = category.size;
         const direction = getMovementDirection(storm);
-     const arrowHTML = Number.isFinite(direction)
-  ? '<span class="storm-direction-arrow" title="Direction of movement" style="transform:rotate('
-    + direction + 'deg)"><span class="storm-direction-shaft"></span><span class="storm-direction-head"></span></span>'
-  : '';
 
+        const arrowHTML = Number.isFinite(direction)
+            ? '<span class="storm-direction-arrow" title="Direction of movement" style="transform:rotate(' +
+              direction + 'deg)"><span class="storm-direction-shaft"></span><span class="storm-direction-head"></span></span>'
+            : '';
 
-const icon = L.divIcon({
-  className: 'storm-div-icon',
-  html:
-    '<div class="storm-pin" style="--storm-color:' + color + ';">' +
-      swirlHTML +
-      arrowHTML +
-      '<span class="storm-pin-label">' + category.label + '</span>' +
-    '</div>',
-  iconSize: [size, size],
-  iconAnchor: [size / 2, size / 2]
-});
-
-'<svg class="storm-swirl" viewBox="0 0 64 64" aria-hidden="true">' +
-'<path d="M29 4 C43 3 55 14 54 27 C53 35 48 40 42 43 C47 33 46 23 38 16 C33 11 27 9 20 9 C23 6 26 5 29 4 Z" fill="white"/>' +
-'<path d="M58 30 C61 43 52 56 39 57 C31 58 25 54 21 48 C31 52 41 49 46 41 C50 36 52 29 51 22 C55 24 57 27 58 30 Z" fill="white"/>' +
-'<path d="M35 60 C22 62 9 53 8 40 C7 32 11 26 17 22 C13 32 16 42 24 47 C29 51 36 52 43 50 C41 55 38 58 35 60 Z" fill="white"/>' +
-'<circle cx="32" cy="32" r="6" fill="white"/>' +
-'</svg>' +
-
-
-                arrowHTML +
-                '<span class="storm-pin-label">' +
-                escapeHTML(category.label) + '</span></div>',
+        const icon = L.divIcon({
+            className: 'storm-div-icon',
+            html:
+                '<div class="storm-pin" style="--storm-color:' + category.color + ';">' +
+                    swirlHTML +
+                    arrowHTML +
+                    '<span class="storm-pin-label">' +
+                    escapeHTML(category.label) +
+                    '</span>' +
+                '</div>',
             iconSize: [size, size],
             iconAnchor: [size / 2, size / 2],
             popupAnchor: [0, -size / 2]
@@ -367,13 +355,15 @@ const icon = L.divIcon({
             escapeHTML(category.name) + '<br>' +
             'Maximum wind: ' + escapeHTML(getWind(storm)) + '<br>' +
             'Movement: ' + escapeHTML(getMovement(storm)) + '<br>' +
-            (coordinates[0].toFixed(2) + '°, ' + coordinates[1].toFixed(2) + '°');
+            coordinates[0].toFixed(2) + '°, ' +
+            coordinates[1].toFixed(2) + '°';
 
         L.marker(coordinates, { icon })
             .addTo(liveMarkers)
             .bindPopup(popup);
     });
 }
+
 
 function renderStormList() {
     const list = $('storm-list');
