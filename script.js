@@ -474,7 +474,12 @@ async function loadLive() {
             $('storm-count').textContent = String(storms.length);
         }
         if (lastUpdated) {
-            lastUpdated.textContent = new Date().toLocaleTimeString();
+            lastSuccessfulRefresh = new Date();
+
+if (lastUpdated) {
+    lastUpdated.textContent = lastSuccessfulRefresh.toLocaleTimeString();
+    lastUpdated.title = 'Last successful data fetch';
+}
         }
 
         const selectedIndex = storms.findIndex(
