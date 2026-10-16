@@ -500,13 +500,11 @@ async function loadLive() {
         if ($('storm-count')) {
             $('storm-count').textContent = String(storms.length);
         }
-        if (lastUpdated) {
-            lastSuccessfulRefresh = new Date();
+           lastSuccessfulRefresh = new Date();
 
-if (lastUpdated) {
-    lastUpdated.textContent = lastSuccessfulRefresh.toLocaleTimeString();
-    lastUpdated.title = 'Last successful data fetch';
-}
+        if (lastUpdated) {
+            lastUpdated.textContent = lastSuccessfulRefresh.toLocaleTimeString();
+            lastUpdated.title = 'Last successful data fetch';
         }
 
         const selectedIndex = storms.findIndex(
@@ -525,13 +523,25 @@ if (lastUpdated) {
 
         renderLiveMap();
     } catch (error) {
-        console.error('StormWatch data error:', error);
-        showError(
-            'storm-list',
-            'Could not load live storm data. ' +
-            'Check your internet connection and try Refresh data again. ' +
-            'Details: ' + error.message
-        );
+               console.error('StormWatch data error:', error);
+
+        if (storms.length) {
+            renderStormList();
+            renderLiveMap();
+        } else {
+            showError(
+                'storm-list',
+                'Could not load live storm data. ' +
+                'Check your internet connection and try Refresh data again. ' +
+                'Details: ' + error.message
+            );
+        }
+
+        if (lastUpdated) {
+            lastUpdated.textContent = lastSuccessfulRefresh
+                ? lastSuccessfulRefresh.toLocaleTimeString() + ' (stale)'
+                : 'Unavailable';
+        }
         if (lastUpdated) lastUpdated.textContent = 'Unavailable';
     } finally {
         loadingLive = false;
