@@ -5,6 +5,24 @@ const DATA_URL = 'https://www.nhc.noaa.gov/CurrentStorms.json';
 
 const $ = id => document.getElementById(id);
 
+async function fetchWithTimeout(url) {
+    const controller = new AbortController();
+
+    const timeout = setTimeout(() => {
+        controller.abort();
+    }, 10000);
+
+    try {
+        return await fetch(url, {
+            cache: 'no-store',
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+
 let storms = [];
 let selectedStorm = null;
 let liveMap = null;
