@@ -1024,3 +1024,148 @@ footer {
 }
 
 
+/* ==========================================
+   STORMWATCH — SEVERE WEATHER CATEGORY BUTTONS
+   ========================================== */
+
+.severe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* Each expandable weather category */
+.severe-group {
+  background: #000000 !important;
+  border: 2px solid #29364b !important;
+  border-radius: 23px !important;
+  overflow: hidden;
+  margin: 0 !important;
+  color: #ffffff;
+  box-shadow: none !important;
+}
+
+/* Category header / dropdown button */
+.severe-group > summary,
+.severe-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-height: 100px;
+  padding: 20px 30px !important;
+  background: #000000 !important;
+  color: #ffffff !important;
+  border: none !important;
+  cursor: pointer;
+  list-style: none;
+  font-size: clamp(21px, 4.8vw, 34px);
+  font-weight: 500;
+  line-height: 1.2;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hide the browser's default disclosure arrow */
+.severe-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.severe-group > summary::marker {
+  content: "";
+}
+
+/* Colored dot */
+.severe-group > summary::before {
+  content: "";
+  display: block;
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--severe-color, #ff9f43);
+}
+
+/* Category label */
+.severe-group > summary .severe-group-title,
+.severe-group > summary strong,
+.severe-group > summary span:first-of-type {
+  color: #ffffff;
+}
+
+/* Alert count on the right */
+.severe-group > summary .severe-count,
+.severe-group > summary .group-count,
+.severe-group > summary .severe-group-count {
+  margin-left: auto;
+  color: #a6a6a6 !important;
+  font-size: 0.9em;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* Right-side chevron */
+.severe-group > summary::after {
+  content: "";
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  margin-left: 4px;
+  border-right: 3px solid #b5b5b5;
+  border-bottom: 3px solid #b5b5b5;
+  transform: rotate(45deg) translateY(-3px);
+  transition: transform 180ms ease;
+}
+
+/* Chevron points upward when expanded */
+.severe-group[open] > summary::after {
+  transform: rotate(225deg) translate(-2px, -1px);
+}
+
+/* Keep the opened category black */
+.severe-group[open] > summary {
+  border-bottom: 1px solid #29364b !important;
+}
+
+/* Alert cards inside an expanded category */
+.severe-group-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 18px;
+  background: #050505;
+}
+
+.severe-card {
+  background: #0b0e14 !important;
+  border: 1px solid #29364b !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  padding: 14px 16px !important;
+}
+
+/* Mobile sizing */
+@media (max-width: 600px) {
+  .severe-list {
+    gap: 13px;
+  }
+
+  .severe-group {
+    border-radius: 22px !important;
+  }
+
+  .severe-group > summary,
+  .severe-group-heading {
+    min-height: 96px;
+    padding: 18px 25px !important;
+    gap: 18px;
+    font-size: clamp(20px, 5vw, 30px);
+  }
+
+  .severe-group > summary::before {
+    flex-basis: 11px;
+    width: 11px;
+    height: 11px;
+  }
+}
+
