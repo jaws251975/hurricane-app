@@ -1742,47 +1742,62 @@ setInterval(loadSevereWeather, 5 * 60 * 1000);
         });
     }
 
-    function populateOptions(searchText = '') {
-        const query = searchText.trim().toLowerCase();
-        const previousValue = select.value;
 
-        const matches = allStorms.filter(storm => {
-            const firstDate = storm.observations[0].date;
-            const year = String(firstDate.getUTCFullYear());
+function populateOptions(searchText = '') {
+    const normalize = value =>
+        String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
 
-            return (
-                storm.name.toLowerCase().includes(query) ||
-                storm.id.toLowerCase().includes(query) ||
-                year.includes(query) ||
-                storm.basin.toLowerCase().includes(query)
-            );
-        });
+    const query = normalize(searchText);
+    const previousValue = select.value;
 
-        select.replaceChildren();
+    const matches = allStorms.filter(storm => {
+        const name = normalize(storm.name);
+        const id = normalize(storm.id);
+        const basin = normalize(storm.basin);
+        const year = String(
+            storm.observations?.[0]?.date?.getUTCFullYear() || ''
+        );
 
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = matches.length
-            ? 'Choose a historical storm (' + matches.length + ' matches)'
-            : 'No storms match this search';
+        return !query ||
+            name.includes(query) ||
+            id.includes(query) ||
+            basin.includes(query) ||
+            year.includes(query);
+    });
 
-        select.appendChild(placeholder);
+    select.replaceChildren();
 
-        for (const storm of matches) {
-            const option = document.createElement('option');
-            option.value = storm.id;
-            const year = storm.observations[0].date.getUTCFullYear();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = matches.length
+        ? 'Choose a historical storm (' + matches.length + ' matches)'
+        : 'No storms match this search';
 
-            option.textContent =
-                year + ' — ' + storm.name + ' (' + storm.basin + ')';
+    select.appendChild(placeholder);
 
-            select.appendChild(option);
-        }
+    matches.forEach(storm => {
+        const option = document.createElement('option');
+        option.value = storm.id;
 
-        if (matches.some(storm => storm.id === previousValue)) {
-            select.value = previousValue;
-        }
+        const year = storm.observations?.[0]?.date
+            ?.getUTCFullYear() || 'Unknown year';
+
+        option.textContent =
+            year + ' — ' + (storm.name || storm.id) +
+            ' (' + storm.basin + ')';
+
+        select.appendChild(option);
+    });
+
+    if (matches.some(storm => storm.id === previousValue)) {
+        select.value = previousValue;
     }
+}
+
 
     function markerIcon(observation) {
         const category = categoryFromKnots(observation.wind);
