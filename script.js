@@ -5,9 +5,15 @@
    STORMWATCH — LIVE STORMS + OFFICIAL NHC FORECAST
    ===================================================== */
 
-const DATA_URL = 'https://www.nhc.noaa.gov/CurrentStorms.json';
-const BACKUP_URL =
-    'https://api.allorigins.win/raw?url=' + encodeURIComponent(DATA_URL);
+const DATA_URL =
+    'https://www.nhc.noaa.gov/CurrentStorms.json';
+
+const BACKUP_URLS = [
+    'https://api.allorigins.win/raw?url=' +
+        encodeURIComponent(DATA_URL),
+
+    'https://proxy.cors.dev/' + DATA_URL
+];
 
 const NHC_MAP_SERVICE =
     'https://mapservices.weather.noaa.gov/tropical/rest/services/' +
