@@ -1790,60 +1790,105 @@ function populateOptions(searchText = '') {
 }
 
 
-    function markerIcon(observation) {
-        const category = categoryFromKnots(observation.wind);
-        const size = Math.max(
-            36,
-            Math.min(58, 34 + (Number.isFinite(observation.wind)
-                ? observation.wind / 8
-                : 0))
-        );
+    
+function markerIcon(observation) {
+    const category = categoryFromKnots(observation.wind);
 
-        const colors = {
-            0: '#36c875',
-            1: '#f5d547',
-            2: '#ff9d32',
-            3: '#ff7373',
-            4: '#ed3f45',
-            5: '#a90e2a'
-        };
+    const size = Math.max(
+        42,
+        Math.min(
+            66,
+            42 + (
+                Number.isFinite(observation.wind)
+                    ? observation.wind / 7
+                    : 0
+            )
+        )
+    );
 
-        const color = colors[category] || colors[0];
-        const label = category === 0
-            ? (Number.isFinite(observation.wind) && observation.wind >= 34
+    const colors = {
+        0: '#36c875',
+        1: '#f5d547',
+        2: '#ff9d32',
+        3: '#ff7373',
+        4: '#ed3f45',
+        5: '#a90e2a'
+    };
+
+    const color = colors[category] || colors[0];
+
+    const label = category === 0
+        ? (
+            Number.isFinite(observation.wind) &&
+            observation.wind >= 34
                 ? 'TS'
-                : 'TD')
-            : String(category);
+                : 'TD'
+        )
+        : String(category);
 
-        const html =
-            '<div style="' +
-                'width:' + size + 'px;height:' + size + 'px;' +
-                'display:flex;align-items:center;justify-content:center;' +
-                'position:relative;border-radius:50%;' +
-                'background:rgba(4,16,29,.94);' +
-                'border:2px solid ' + color + ';' +
-                'box-shadow:0 0 12px ' + color + '99;' +
-                'font-size:' + Math.round(size * 0.55) + 'px;' +
-            '">' +
-                '<span style="line-height:1">🌀</span>' +
-                '<span style="' +
-                    'position:absolute;right:-5px;top:-7px;' +
-                    'min-width:18px;height:18px;padding:0 3px;' +
-                    'box-sizing:border-box;border-radius:10px;' +
-                    'display:flex;align-items:center;justify-content:center;' +
-                    'background:' + color + ';color:#08111b;' +
-                    'font:bold 11px Arial,sans-serif;' +
-                    'border:1px solid #fff;' +
-                '">' + label + '</span>' +
-            '</div>';
+    const html = `
+        <div class="history-hurricane-marker"
+             style="
+                width:${size}px;
+                height:${size}px;
+                --storm-color:${color};
+             ">
+            <svg viewBox="0 0 100 100"
+                 width="${size - 4}"
+                 height="${size - 4}"
+                 aria-hidden="true">
+                <circle cx="50" cy="50" r="46"
+                    fill="#07111f"
+                    stroke="${color}"
+                    stroke-width="3"/>
 
-        return L.divIcon({
-            className: '',
-            html,
-            iconSize: [size, size],
-            iconAnchor: [size / 2, size / 2]
-        });
-    }
+                <path d="M50 13
+                    C75 10 91 31 81 49
+                    C72 66 50 69 37 57
+                    C24 44 34 28 48 30
+                    C60 31 64 42 57 49"
+                    fill="none"
+                    stroke="#ffffff"
+                    stroke-width="9"
+                    stroke-linecap="round"/>
+
+                <path d="M85 56
+                    C81 79 59 91 40 81
+                    C22 72 20 53 33 42
+                    C44 33 57 39 57 49
+                    C57 57 49 61 43 56"
+                    fill="none"
+                    stroke="${color}"
+                    stroke-width="8"
+                    stroke-linecap="round"/>
+
+                <path d="M26 23
+                    C13 37 14 58 26 70"
+                    fill="none"
+                    stroke="#8be9ff"
+                    stroke-width="5"
+                    stroke-linecap="round"/>
+
+                <circle cx="50" cy="50" r="7"
+                    fill="#ffffff"
+                    stroke="${color}"
+                    stroke-width="3"/>
+            </svg>
+
+            <span class="history-category-badge"
+                  style="background:${color}">
+                ${label}
+            </span>
+        </div>
+    `;
+
+    return L.divIcon({
+        className: 'history-hurricane-icon',
+        html,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2]
+    });
+}
 
     function formatDate(date) {
         return date.toLocaleString('en-US', {
