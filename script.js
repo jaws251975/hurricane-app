@@ -1686,6 +1686,7 @@ const DATASETS = [
     }
 
     
+
 async function fetchArchive(url) {
     const response = await fetch(url, {
         cache: 'no-store'
@@ -1705,38 +1706,6 @@ async function fetchArchive(url) {
 }
 
 
-        let lastError = 'The archive could not be downloaded.';
-
-        for (const proxyUrl of proxyUrls) {
-            try {
-                const response = await fetch(proxyUrl, {
-                    cache: 'no-store'
-                });
-
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status);
-                }
-
-                const text = await response.text();
-
-                // Prevent an HTML error page from being treated as storm data.
-                if (
-                    text.length < 1000 ||
-                    !/[A-Z]{2}\d{6},/.test(text)
-                ) {
-                    throw new Error('The response was not valid HURDAT2 data.');
-                }
-
-                return text;
-            } catch (error) {
-                lastError = error && error.message
-                    ? error.message
-                    : 'Network request failed.';
-            }
-        }
-
-        throw new Error(lastError);
-    }
 
     function addSearchBox() {
         if ($h('history-search')) return;
