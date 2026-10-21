@@ -1289,3 +1289,12 @@ footer {
   }
 }
 
+/* Keep hurricane markers above forecast labels */
+.storm-div-icon {
+  z-index: 10000 !important;
+}
+
+.forecast-wind-icon {
+  z-index: 100 !important;
+}
+
