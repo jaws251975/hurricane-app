@@ -749,30 +749,50 @@ async function loadLive() {
 
 /* ----------------- STARTUP ----------------- */
 
+
 function startStormWatch() {
     initializeMap();
 
     const button = $('refresh-button');
-    if (button) {
-        button.addEventListener('click', () => {
-            loadLive();
-            loadForecastLayers();
-        });
+
+    async function refreshAllData() {
+        if (loadingLive) return;
+
+        if (button) {
+            button.disabled = true;
+            button.textContent = '↻ Refreshing…';
+        }
+
+        setStatus('Refreshing NOAA data…');
+
+        try {
+            await loadLive();
+
+            // Wait for any existing forecast request to finish.
+            while (loadingForecast) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            await loadForecastLayers();
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = '↻ Refresh data';
+            }
+        }
     }
 
+    if (button) {
+        button.addEventListener('click', refreshAllData);
+    }
+
+    // Load data on startup.
     loadLive();
     loadForecastLayers();
 
     if (refreshTimer) clearInterval(refreshTimer);
 
-    refreshTimer = setInterval(() => {
-        loadLive();
-        loadForecastLayers();
-    }, REFRESH_INTERVAL);
+    // Keep automatic updates every five minutes.
+    refreshTimer = setInterval(refreshAllData, REFRESH_INTERVAL);
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startStormWatch, { once: true });
-} else {
-    startStormWatch();
-}
