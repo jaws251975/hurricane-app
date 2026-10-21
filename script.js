@@ -1042,41 +1042,180 @@ startStormWatch();
 setTimeout(loadTornadoWarnings, 1500);
 
 
+
 /* ==========================================
-   STORMWATCH — NATIONWIDE SEVERE WEATHER
+   STORMWATCH — GROUPED SEVERE WEATHER
    ========================================== */
 
-const severeEvents = new Set([
-  'Severe Thunderstorm Warning',
-  'Severe Thunderstorm Watch',
-  'Tornado Warning',
-  'Tornado Watch',
-  'Flash Flood Warning',
-  'Flash Flood Watch',
-  'Flood Warning',
-  'Flood Watch',
-  'High Wind Warning',
-  'High Wind Watch',
-  'Extreme Wind Warning',
-  'Hurricane Warning',
-  'Hurricane Watch',
-  'Tropical Storm Warning',
-  'Tropical Storm Watch',
-  'Blizzard Warning',
-  'Winter Storm Warning',
-  'Winter Storm Watch',
-  'Ice Storm Warning',
-  'Winter Weather Advisory',
-  'Excessive Heat Warning',
-  'Heat Advisory',
-  'Freeze Warning',
-  'Red Flag Warning'
-]);
+const severeGroups = [
+  {
+    id: 'thunderstorms',
+    title: 'Severe thunderstorms',
+    color: '#ff9f43',
+    events: ['Severe Thunderstorm Warning', 'Severe Thunderstorm Watch']
+  },
+  {
+    id: 'tornadoes',
+    title: 'Tornadoes',
+    color: '#ff3030',
+    events: ['Tornado Warning', 'Tornado Watch']
+  },
+  {
+    id: 'flooding',
+    title: 'Flooding',
+    color: '#39a8ff',
+    events: [
+      'Flash Flood Warning', 'Flash Flood Watch',
+      'Flood Warning', 'Flood Watch'
+    ]
+  },
+  {
+    id: 'wind',
+    title: 'High winds',
+    color: '#ffcf45',
+    events: [
+      'High Wind Warning', 'High Wind Watch',
+      'Extreme Wind Warning'
+    ]
+  },
+  {
+    id: 'tropical',
+    title: 'Hurricanes & tropical storms',
+    color: '#e879f9',
+    events: [
+      'Hurricane Warning', 'Hurricane Watch',
+      'Tropical Storm Warning', 'Tropical Storm Watch'
+    ]
+  },
+  {
+    id: 'winter',
+    title: 'Winter weather',
+    color: '#a5b4fc',
+    events: [
+      'Blizzard Warning', 'Winter Storm Warning',
+      'Winter Storm Watch', 'Ice Storm Warning',
+      'Winter Weather Advisory', 'Freeze Warning'
+    ]
+  },
+  {
+    id: 'heat',
+    title: 'Heat',
+    color: '#ff5b5b',
+    events: ['Excessive Heat Warning', 'Heat Advisory']
+  },
+  {
+    id: 'fire',
+    title: 'Fire weather',
+    color: '#fb7185',
+    events: ['Red Flag Warning']
+  }
+];
 
-let severeWeatherLayer = null;
 let severeAlerts = [];
+let severeLayer = null;
 let severeLastSuccess = null;
 let severeLoading = false;
+
+function getSevereGroup(eventName) {
+  return severeGroups.find(group =>
+    group.events.includes(eventName)
+  ) || { title: 'Other alerts', color: '#ffb35c', events: [] };
+}
+
+function renderSevereAlerts() {
+  const list = document.getElementById('severe-list');
+  if (!list) return;
+
+  if (!severeAlerts.length) {
+    list.innerHTML =
+      '<div class="severe-empty">' +
+      'No matching active alerts were returned. Check your local ' +
+      'forecast even when this list is empty.' +
+      '</div>';
+    return;
+  }
+
+  list.innerHTML = severeGroups.map(group => {
+    const alerts = severeAlerts.filter(feature =>
+      group.events.includes(feature.properties?.event)
+    );
+
+    if (!alerts.length) return '';
+
+    const cards = alerts.map(feature => {
+      const p = feature.properties || {};
+      const expires = p.expires
+        ? new Date(p.expires).toLocaleString()
+        : 'Not provided';
+
+      return `
+        <button type="button"
+          class="severe-card"
+          data-severe-id="${escapeHTML(String(feature.id || ''))}"
+          style="--severe-color:${group.color}">
+          <span class="severe-card-title">
+            ${escapeHTML(p.event || 'Weather alert')}
+          </span>
+          <span class="severe-card-area">
+            ${escapeHTML(p.areaDesc || 'Area not specified')}
+          </span>
+          <span class="severe-card-meta">
+            Severity: ${escapeHTML(p.severity || 'Not specified')}
+          </span>
+          <span class="severe-card-meta">
+            Expires: ${escapeHTML(expires)}
+          </span>
+          <span class="severe-card-area">
+            ${escapeHTML(p.headline || '')}
+          </span>
+        </button>
+      `;
+    }).join('');
+
+    return `
+      <details class="severe-group">
+        <summary class="severe-group-heading"
+          style="--severe-color:${group.color}">
+          <span>${group.title}</span>
+          <span class="severe-group-count">${alerts.length}</span>
+        </summary>
+        <div class="severe-group-cards">${cards}</div>
+      </details>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.severe-card').forEach(button => {
+    button.addEventListener('click', () => {
+      const feature = severeAlerts.find(item =>
+        String(item.id || '') === button.dataset.severeId
+      );
+
+      if (!feature || !liveMap || typeof L === 'undefined') return;
+
+      if (feature.geometry) {
+        const shape = L.geoJSON(feature);
+        const bounds = shape.getBounds();
+
+        if (bounds.isValid()) {
+          liveMap.fitBounds(bounds, {
+            padding: [25, 25],
+            maxZoom: 8
+          });
+        }
+      }
+
+      // Open the matching alert on the map, if it has a boundary.
+      if (severeLayer) {
+        severeLayer.eachLayer(layer => {
+          if (layer.feature &&
+              layer.feature.id === feature.id) {
+            layer.openPopup();
+          }
+        });
+      }
+    });
+  });
+}
 
 async function loadSevereWeather() {
   if (severeLoading) return;
@@ -1100,74 +1239,65 @@ async function loadSevereWeather() {
     );
 
     if (!response.ok) {
-      throw new Error('Weather Service returned HTTP ' + response.status);
+      throw new Error('Weather Service HTTP ' + response.status);
     }
 
     const data = await response.json();
 
     const freshAlerts = (data.features || []).filter(feature => {
-      const p = feature && feature.properties;
-      return p && severeEvents.has(p.event);
+      const event = feature?.properties?.event;
+      return severeGroups.some(group => group.events.includes(event));
     });
 
-    // Build a replacement map layer before removing the old layer.
+    // Draw all alert types on the map using category colors.
     let newLayer = null;
 
     if (typeof L !== 'undefined' && liveMap) {
-      newLayer = L.geoJSON(freshAlerts.filter(
-        feature => feature.geometry
-      ), {
-        style: feature => {
-          const event = feature.properties?.event || '';
+      newLayer = L.geoJSON(
+        freshAlerts.filter(feature => feature.geometry),
+        {
+          style: feature => {
+            const group = getSevereGroup(
+              feature.properties?.event || ''
+            );
 
-          let color = '#ffb35c';
+            return {
+              color: group.color,
+              weight: 2.5,
+              opacity: 1,
+              fillColor: group.color,
+              fillOpacity: 0.18
+            };
+          },
 
-          if (/Tornado|Hurricane|Extreme Wind/i.test(event)) {
-            color = '#ff3030';
-          } else if (/Flood/i.test(event)) {
-            color = '#39a8ff';
-          } else if (/Winter|Blizzard|Ice Storm|Freeze/i.test(event)) {
-            color = '#9b8cff';
-          } else if (/Thunderstorm|High Wind/i.test(event)) {
-            color = '#ff8c42';
-          } else if (/Heat/i.test(event)) {
-            color = '#ff5252';
+          onEachFeature: (feature, layer) => {
+            const p = feature.properties || {};
+            const expires = p.expires
+              ? new Date(p.expires).toLocaleString()
+              : 'Not provided';
+            const group = getSevereGroup(p.event || '');
+
+            layer.bindPopup(
+              '<strong style="color:' + group.color + '">' +
+              escapeHTML(p.event || 'Weather alert') + '</strong><br>' +
+              escapeHTML(p.headline || '') + '<br>' +
+              '<strong>Area:</strong> ' +
+              escapeHTML(p.areaDesc || 'Not specified') + '<br>' +
+              '<strong>Severity:</strong> ' +
+              escapeHTML(p.severity || 'Not specified') + '<br>' +
+              '<strong>Expires:</strong> ' + escapeHTML(expires)
+            );
           }
-
-          return {
-            color,
-            weight: 2,
-            opacity: 0.95,
-            fillColor: color,
-            fillOpacity: 0.15
-          };
-        },
-
-        onEachFeature: (feature, layer) => {
-          const p = feature.properties || {};
-          const expires = p.expires
-            ? new Date(p.expires).toLocaleString()
-            : 'Not provided';
-
-          layer.bindPopup(
-            '<strong>' + escapeHTML(p.event || 'Weather alert') + '</strong><br>' +
-            escapeHTML(p.headline || 'Official weather alert') + '<br>' +
-            '<strong>Area:</strong> ' +
-            escapeHTML(p.areaDesc || 'Not specified') + '<br>' +
-            '<strong>Severity:</strong> ' +
-            escapeHTML(p.severity || 'Not specified') + '<br>' +
-            '<strong>Expires:</strong> ' + escapeHTML(expires)
-          );
         }
-      });
+      );
 
       newLayer.addTo(liveMap);
 
-      if (severeWeatherLayer && liveMap.hasLayer(severeWeatherLayer)) {
-        liveMap.removeLayer(severeWeatherLayer);
+      if (severeLayer && liveMap.hasLayer(severeLayer)) {
+        liveMap.removeLayer(severeLayer);
       }
 
-      severeWeatherLayer = newLayer;
+      severeLayer = newLayer;
     }
 
     severeAlerts = freshAlerts;
@@ -1178,80 +1308,28 @@ async function loadSevereWeather() {
     if (status) {
       status.textContent =
         'Last checked ' + severeLastSuccess.toLocaleTimeString() +
-        ' · Official active alerts';
+        ' · ' + severeAlerts.length + ' active alerts';
     }
 
-    if (!list) return;
-
-    if (!severeAlerts.length) {
-      list.innerHTML =
-        '<div class="severe-empty">' +
-        'No matching active severe-weather alerts were returned. ' +
-        'Check local forecasts even when this list is empty.' +
-        '</div>';
-      return;
-    }
-
-    list.innerHTML = severeAlerts.map((feature, index) => {
-      const p = feature.properties || {};
-      const expires = p.expires
-        ? new Date(p.expires).toLocaleString()
-        : 'Not provided';
-
-      return (
-        '<button type="button" class="severe-card" data-severe-index="' +
-        index + '">' +
-          '<span class="severe-card-title">' +
-            escapeHTML(p.event || 'Weather alert') +
-          '</span>' +
-          '<span class="severe-card-area">' +
-            escapeHTML(p.areaDesc || 'Area not specified') +
-          '</span>' +
-          '<span class="severe-card-meta">' +
-            'Severity: ' + escapeHTML(p.severity || 'Not specified') +
-          '</span>' +
-          '<span class="severe-card-meta">' +
-            'Expires: ' + escapeHTML(expires) +
-          '</span>' +
-        '</button>'
-      );
-    }).join('');
-
-    list.querySelectorAll('.severe-card').forEach(button => {
-      button.addEventListener('click', () => {
-        const feature = severeAlerts[Number(button.dataset.severeIndex)];
-        if (!feature) return;
-
-        // Zoom to the alert boundary when geographic data is available.
-        if (feature.geometry && typeof L !== 'undefined' && liveMap) {
-          const shape = L.geoJSON(feature);
-          const bounds = shape.getBounds();
-
-          if (bounds.isValid()) {
-            liveMap.fitBounds(bounds, {
-              padding: [25, 25],
-              maxZoom: 8
-            });
-          }
-        }
-      });
-    });
+    renderSevereAlerts();
 
   } catch (error) {
     console.error('Severe weather refresh failed:', error);
 
     if (status) {
       status.textContent = severeLastSuccess
-        ? 'Refresh failed — showing last successful alerts'
+        ? 'Refresh failed — showing previous alerts'
         : 'Alert data unavailable. Try refreshing again.';
     }
 
-    if (count && !severeLastSuccess) count.textContent = 'Unavailable';
+    if (count && !severeLastSuccess) {
+      count.textContent = 'Unavailable';
+    }
 
     if (list && !severeLastSuccess) {
       list.innerHTML =
         '<div class="error-state">' +
-        'Could not load severe weather alerts. Check your connection and try again.' +
+        'Could not load severe weather alerts. Try refreshing again.' +
         '</div>';
     }
   } finally {
@@ -1259,13 +1337,14 @@ async function loadSevereWeather() {
   }
 }
 
-// Initial load, manual refresh, and automatic updates.
 loadSevereWeather();
 
-const severeRefreshButton = document.getElementById('refresh-button');
+const severeRefreshButton =
+  document.getElementById('refresh-button');
 
 if (severeRefreshButton) {
   severeRefreshButton.addEventListener('click', loadSevereWeather);
 }
 
 setInterval(loadSevereWeather, 5 * 60 * 1000);
+
