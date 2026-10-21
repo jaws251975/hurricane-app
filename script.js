@@ -235,28 +235,36 @@ function windText(storm) {
     return Number.isFinite(mph) ? Math.round(mph) + ' mph' : 'Not reported';
 }
 
+
 function categoryInfo(storm) {
     const type = stormTypeCode(storm);
     const knots = windKnots(storm);
+    const mph = windMph(storm);
+
+    // Larger markers for stronger winds.
+    const size = Number.isFinite(mph)
+        ? Math.max(32, Math.min(64, Math.round(32 + mph * 0.16)))
+        : 42;
 
     if (type === 'TD' || type === 'SD') {
-        return { label: type, color: '#22c55e', size: 42 };
+        return { label: type, color: '#22c55e', size };
     }
 
-    if (type === 'TS' || type === 'SS') {
-        return { label: type, color: '#22c55e', size: 42 };
+    if (type === 'TS' || type === 'SS' || type === 'STS') {
+        return { label: type, color: '#22c55e', size };
     }
 
     if (['HU', 'TY'].includes(type) && Number.isFinite(knots)) {
-        if (knots >= 137) return { label: '5', color: '#7f1d1d', size: 48 };
-        if (knots >= 113) return { label: '4', color: '#dc2626', size: 46 };
-        if (knots >= 96) return { label: '3', color: '#f87171', size: 44 };
-        if (knots >= 83) return { label: '2', color: '#f97316', size: 42 };
-        if (knots >= 64) return { label: '1', color: '#facc15', size: 40 };
+        if (knots >= 137) return { label: '5', color: '#7f1d1d', size };
+        if (knots >= 113) return { label: '4', color: '#dc2626', size };
+        if (knots >= 96) return { label: '3', color: '#f87171', size };
+        if (knots >= 83) return { label: '2', color: '#f97316', size };
+        if (knots >= 64) return { label: '1', color: '#facc15', size };
     }
 
-    return { label: type || '?', color: '#94a3b8', size: 42 };
+    return { label: type || '?', color: '#94a3b8', size };
 }
+
 
 function coordinate(value) {
     if (typeof value === 'number') return value;
