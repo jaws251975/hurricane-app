@@ -1683,11 +1683,25 @@ const DATASETS = [
         return storms.filter(storm => storm.observations.length > 0);
     }
 
-    async function fetchArchive(url) {
-        const proxyUrls = [
-            'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
-            'https://corsproxy.io/?url=' + encodeURIComponent(url)
-        ];
+    
+async function fetchArchive(url) {
+    const response = await fetch(url, {
+        cache: 'no-store'
+    });
+
+    if (!response.ok) {
+        throw new Error('HTTP ' + response.status);
+    }
+
+    const text = await response.text();
+
+    if (text.length < 1000 || !/[A-Z]{2}\d{6},/.test(text)) {
+        throw new Error('Invalid or empty historical archive.');
+    }
+
+    return text;
+}
+
 
         let lastError = 'The archive could not be downloaded.';
 
