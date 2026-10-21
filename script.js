@@ -749,6 +749,9 @@ async function loadLive() {
         } else {
             setStatus('Data unavailable', error.message);
             showListMessage(
+    'DATA ERROR: ' + (error.message || String(error))
+);
+            showListMessage(
                 'Could not reach NOAA live data. Check your connection and try Refresh data again.'
             );
             console.error(error);
