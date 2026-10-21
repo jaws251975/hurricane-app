@@ -833,3 +833,84 @@ footer {
   color: var(--cyan);
 }
 
+/* Nationwide severe weather center */
+
+.severe-panel {
+  margin-top: 20px;
+}
+
+.severe-count {
+  color: #ffb35c;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.severe-info {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.severe-status {
+  padding: 12px 20px;
+  color: var(--cyan);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+}
+
+.severe-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.severe-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #704d2c;
+  border-left: 4px solid #ffb35c;
+  border-radius: 8px;
+  background: #211e19;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.severe-card:hover {
+  background: #30271c;
+  border-color: #ffb35c;
+}
+
+.severe-card-title {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.severe-card-area,
+.severe-card-meta {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.severe-card-meta {
+  color: #ffca85;
+}
+
+.severe-empty {
+  grid-column: 1 / -1;
+  padding: 20px 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
