@@ -1500,4 +1500,613 @@ setInterval(loadSevereWeather, 5 * 60 * 1000);
 })();
 
 
+/* ======================================================
+   STORMWATCH — STAGE 2: HISTORICAL STORM REPLAY
+   Uses NOAA HURDAT2 best-track observations.
+   Separate from the live hurricane map.
+   ====================================================== */
+
+(function historicalReplayStage2() {
+    const $h = id => document.getElementById(id);
+
+    const select = $h('history-storm');
+    const status = $h('history-status');
+    const slider = $h('history-slider');
+    const playButton = $h('history-play');
+    const resetButton = $h('history-reset');
+    const mapElement = $h('history-map');
+
+    if (!select || !status || !slider || !mapElement) {
+        console.error('[StormWatch History] Required history HTML is missing.');
+        return;
+    }
+
+    // Prevent duplicate event handlers if the script is initialized twice.
+    if (window.stormWatchHistoryStage2Loaded) return;
+    window.stormWatchHistoryStage2Loaded = true;
+
+    const DATASETS = [
+        {
+            label: 'Atlantic',
+            url: 'https://www.nhc.noaa.gov/data/hurdat/hurdat2-1851-2025-092326.txt'
+        },
+        {
+            label: 'Eastern/Central Pacific',
+            url: 'https://www.nhc.noaa.gov/data/hurdat/hurdat2-nepac-1949-2025-092926.txt'
+        }
+    ];
+
+    let allStorms = [];
+    let activeStorm = null;
+    let trackLine = null;
+    let stormMarker = null;
+    let playbackTimer = null;
+    let currentIndex = 0;
+
+    function setStatus(message) {
+        status.textContent = message;
+    }
+
+    function stopPlayback() {
+        if (playbackTimer !== null) {
+            clearInterval(playbackTimer);
+            playbackTimer = null;
+        }
+
+        if (playButton) playButton.textContent = '▶ Play';
+    }
+
+    function parseCoordinate(value) {
+        const text = String(value || '').trim().toUpperCase();
+        const match = text.match(/^(-?\d+(?:\.\d+)?)([NSEW])$/);
+
+        if (!match) return NaN;
+
+        let number = Number(match[1]);
+        if (match[2] === 'S' || match[2] === 'W') {
+            number = -Math.abs(number);
+        } else {
+            number = Math.abs(number);
+        }
+
+        return number;
+    }
+
+    function categoryFromKnots(knots) {
+        if (!Number.isFinite(knots) || knots < 34) return 0;
+        if (knots < 64) return 0; // Tropical storm, not a hurricane
+        if (knots < 83) return 1;
+        if (knots < 96) return 2;
+        if (knots < 113) return 3;
+        if (knots < 137) return 4;
+        return 5;
+    }
+
+    function categoryLabel(knots) {
+        const category = categoryFromKnots(knots);
+
+        if (!Number.isFinite(knots) || knots < 0) return 'Unavailable';
+        if (knots < 34) return 'Depression / below TS strength';
+        if (knots < 64) return 'Tropical storm';
+
+        return 'Category ' + category;
+    }
+
+    function windLabel(knots) {
+        if (!Number.isFinite(knots) || knots < 0) return 'Unavailable';
+
+        const mph = Math.round(knots * 1.150779);
+        return mph + ' mph (' + knots + ' kt)';
+    }
+
+    function pressureLabel(pressure) {
+        if (!Number.isFinite(pressure) || pressure <= 0 || pressure >= 9999) {
+            return 'Unavailable';
+        }
+
+        return pressure + ' mb';
+    }
+
+    function parseHurdat2(text, basinLabel) {
+        const lines = text.split(/\r?\n/);
+        const storms = [];
+        let current = null;
+
+        for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line) continue;
+
+            const fields = line.split(',').map(value => value.trim());
+
+            // HURDAT2 storm headers contain ID, name, and observation count.
+            if (
+                fields.length >= 3 &&
+                /^[A-Z]{2}\d{6}$/.test(fields[0]) &&
+                /^\d+$/.test(fields[2])
+            ) {
+                current = {
+                    id: fields[0],
+                    name: fields[1] || fields[0],
+                    basin: basinLabel,
+                    observations: []
+                };
+
+                storms.push(current);
+                continue;
+            }
+
+            if (!current || fields.length < 8) continue;
+
+            const dateText = fields[0];
+            const timeText = fields[1];
+            const latitude = parseCoordinate(fields[4]);
+            const longitude = parseCoordinate(fields[5]);
+            const wind = Number(fields[6]);
+            const pressure = Number(fields[7]);
+
+            if (
+                !/^\d{8}$/.test(dateText) ||
+                !Number.isFinite(latitude) ||
+                !Number.isFinite(longitude) ||
+                latitude < -90 || latitude > 90 ||
+                longitude < -180 || longitude > 180
+            ) {
+                continue;
+            }
+
+            const date = new Date(
+                dateText.slice(0, 4) + '-' +
+                dateText.slice(4, 6) + '-' +
+                dateText.slice(6, 8) + 'T' +
+                (timeText || '0000').padStart(4, '0').slice(0, 2) +
+                ':' +
+                (timeText || '0000').padStart(4, '0').slice(2, 4) +
+                ':00Z'
+            );
+
+            if (Number.isNaN(date.getTime())) continue;
+
+            current.observations.push({
+                date,
+                latitude,
+                longitude,
+                wind: Number.isFinite(wind) && wind >= 0 ? wind : NaN,
+                pressure: Number.isFinite(pressure) && pressure > 0
+                    ? pressure
+                    : NaN,
+                status: fields[3] || ''
+            });
+        }
+
+        return storms.filter(storm => storm.observations.length > 0);
+    }
+
+    async function fetchArchive(url) {
+        const proxyUrls = [
+            'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+            'https://corsproxy.io/?url=' + encodeURIComponent(url)
+        ];
+
+        let lastError = 'The archive could not be downloaded.';
+
+        for (const proxyUrl of proxyUrls) {
+            try {
+                const response = await fetch(proxyUrl, {
+                    cache: 'no-store'
+                });
+
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                const text = await response.text();
+
+                // Prevent an HTML error page from being treated as storm data.
+                if (
+                    text.length < 1000 ||
+                    !/[A-Z]{2}\d{6},/.test(text)
+                ) {
+                    throw new Error('The response was not valid HURDAT2 data.');
+                }
+
+                return text;
+            } catch (error) {
+                lastError = error && error.message
+                    ? error.message
+                    : 'Network request failed.';
+            }
+        }
+
+        throw new Error(lastError);
+    }
+
+    function addSearchBox() {
+        if ($h('history-search')) return;
+
+        const search = document.createElement('input');
+        search.id = 'history-search';
+        search.type = 'search';
+        search.placeholder = 'Search storm name or year…';
+        search.setAttribute('aria-label', 'Search historical storms');
+
+        search.style.cssText =
+            'width:100%;box-sizing:border-box;min-height:42px;' +
+            'padding:10px;border:1px solid var(--line,#294052);' +
+            'border-radius:7px;background:#081624;color:#edf5ff;' +
+            'font:inherit;margin-bottom:8px;';
+
+        select.parentNode.insertBefore(search, select);
+
+        search.addEventListener('input', () => {
+            populateOptions(search.value);
+        });
+    }
+
+    function populateOptions(searchText = '') {
+        const query = searchText.trim().toLowerCase();
+        const previousValue = select.value;
+
+        const matches = allStorms.filter(storm => {
+            const firstDate = storm.observations[0].date;
+            const year = String(firstDate.getUTCFullYear());
+
+            return (
+                storm.name.toLowerCase().includes(query) ||
+                storm.id.toLowerCase().includes(query) ||
+                year.includes(query) ||
+                storm.basin.toLowerCase().includes(query)
+            );
+        });
+
+        select.replaceChildren();
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = matches.length
+            ? 'Choose a historical storm (' + matches.length + ' matches)'
+            : 'No storms match this search';
+
+        select.appendChild(placeholder);
+
+        for (const storm of matches) {
+            const option = document.createElement('option');
+            option.value = storm.id;
+            const year = storm.observations[0].date.getUTCFullYear();
+
+            option.textContent =
+                year + ' — ' + storm.name + ' (' + storm.basin + ')';
+
+            select.appendChild(option);
+        }
+
+        if (matches.some(storm => storm.id === previousValue)) {
+            select.value = previousValue;
+        }
+    }
+
+    function markerIcon(observation) {
+        const category = categoryFromKnots(observation.wind);
+        const size = Math.max(
+            36,
+            Math.min(58, 34 + (Number.isFinite(observation.wind)
+                ? observation.wind / 8
+                : 0))
+        );
+
+        const colors = {
+            0: '#36c875',
+            1: '#f5d547',
+            2: '#ff9d32',
+            3: '#ff7373',
+            4: '#ed3f45',
+            5: '#a90e2a'
+        };
+
+        const color = colors[category] || colors[0];
+        const label = category === 0
+            ? (Number.isFinite(observation.wind) && observation.wind >= 34
+                ? 'TS'
+                : 'TD')
+            : String(category);
+
+        const html =
+            '<div style="' +
+                'width:' + size + 'px;height:' + size + 'px;' +
+                'display:flex;align-items:center;justify-content:center;' +
+                'position:relative;border-radius:50%;' +
+                'background:rgba(4,16,29,.94);' +
+                'border:2px solid ' + color + ';' +
+                'box-shadow:0 0 12px ' + color + '99;' +
+                'font-size:' + Math.round(size * 0.55) + 'px;' +
+            '">' +
+                '<span style="line-height:1">🌀</span>' +
+                '<span style="' +
+                    'position:absolute;right:-5px;top:-7px;' +
+                    'min-width:18px;height:18px;padding:0 3px;' +
+                    'box-sizing:border-box;border-radius:10px;' +
+                    'display:flex;align-items:center;justify-content:center;' +
+                    'background:' + color + ';color:#08111b;' +
+                    'font:bold 11px Arial,sans-serif;' +
+                    'border:1px solid #fff;' +
+                '">' + label + '</span>' +
+            '</div>';
+
+        return L.divIcon({
+            className: '',
+            html,
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2]
+        });
+    }
+
+    function formatDate(date) {
+        return date.toLocaleString('en-US', {
+            timeZone: 'UTC',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }) + ' UTC';
+    }
+
+    function renderObservation(index) {
+        if (!activeStorm || !window.stormWatchHistoryMap) return;
+
+        const observations = activeStorm.observations;
+        currentIndex = Math.max(0, Math.min(index, observations.length - 1));
+
+        const observation = observations[currentIndex];
+        const traveled = observations
+            .slice(0, currentIndex + 1)
+            .map(point => [point.latitude, point.longitude]);
+
+        if (trackLine) {
+            trackLine.setLatLngs(traveled);
+        } else {
+            trackLine = L.polyline(traveled, {
+                color: '#ff3e45',
+                weight: 3,
+                opacity: 0.95
+            }).addTo(window.stormWatchHistoryMap);
+        }
+
+        if (stormMarker) {
+            stormMarker.setLatLng([
+                observation.latitude,
+                observation.longitude
+            ]);
+            stormMarker.setIcon(markerIcon(observation));
+        } else {
+            stormMarker = L.marker(
+                [observation.latitude, observation.longitude],
+                { icon: markerIcon(observation), zIndexOffset: 1000 }
+            ).addTo(window.stormWatchHistoryMap);
+        }
+
+        $h('history-name').textContent = activeStorm.name;
+        $h('history-date').textContent = formatDate(observation.date);
+        $h('history-wind').textContent = windLabel(observation.wind);
+        $h('history-category').textContent = categoryLabel(observation.wind);
+
+        // Add pressure if this optional display field is present.
+        let pressureElement = $h('history-pressure');
+
+        if (!pressureElement) {
+            const details = document.querySelector('.history-details');
+
+            if (details) {
+                const cell = document.createElement('div');
+                cell.innerHTML =
+                    '<span class="history-label">CENTRAL PRESSURE</span>' +
+                    '<strong id="history-pressure">Unavailable</strong>';
+                details.appendChild(cell);
+                pressureElement = $h('history-pressure');
+            }
+        }
+
+        if (pressureElement) {
+            pressureElement.textContent = pressureLabel(observation.pressure);
+        }
+
+        slider.max = String(observations.length - 1);
+        slider.value = String(currentIndex);
+        slider.disabled = false;
+
+        $h('history-start').textContent =
+            formatDate(observations[0].date);
+        $h('history-end').textContent =
+            formatDate(observations[observations.length - 1].date);
+
+        if (playButton) playButton.disabled = false;
+        if (resetButton) resetButton.disabled = false;
+
+        setStatus(
+            activeStorm.name + ' — observation ' +
+            (currentIndex + 1) + ' of ' + observations.length +
+            '. Showing only the track traveled so far.'
+        );
+    }
+
+    function chooseStorm() {
+        stopPlayback();
+
+        const storm = allStorms.find(item => item.id === select.value);
+
+        if (!storm) {
+            activeStorm = null;
+
+            if (trackLine) {
+                window.stormWatchHistoryMap.removeLayer(trackLine);
+                trackLine = null;
+            }
+
+            if (stormMarker) {
+                window.stormWatchHistoryMap.removeLayer(stormMarker);
+                stormMarker = null;
+            }
+
+            slider.disabled = true;
+            if (playButton) playButton.disabled = true;
+            if (resetButton) resetButton.disabled = true;
+
+            $h('history-name').textContent = 'No storm selected';
+            $h('history-date').textContent = '—';
+            $h('history-wind').textContent = '—';
+            $h('history-category').textContent = '—';
+
+            const pressure = $h('history-pressure');
+            if (pressure) pressure.textContent = '—';
+            return;
+        }
+
+        activeStorm = storm;
+
+        if (trackLine) {
+            window.stormWatchHistoryMap.removeLayer(trackLine);
+            trackLine = null;
+        }
+
+        if (stormMarker) {
+            window.stormWatchHistoryMap.removeLayer(stormMarker);
+            stormMarker = null;
+        }
+
+        const first = storm.observations[0];
+
+        window.stormWatchHistoryMap.setView(
+            [first.latitude, first.longitude],
+            4
+        );
+
+        renderObservation(0);
+    }
+
+    function togglePlayback() {
+        if (!activeStorm) return;
+
+        if (playbackTimer !== null) {
+            stopPlayback();
+            return;
+        }
+
+        if (currentIndex >= activeStorm.observations.length - 1) {
+            renderObservation(0);
+        }
+
+        if (playButton) playButton.textContent = '⏸ Pause';
+
+        playbackTimer = setInterval(() => {
+            if (
+                !activeStorm ||
+                currentIndex >= activeStorm.observations.length - 1
+            ) {
+                stopPlayback();
+                return;
+            }
+
+            renderObservation(currentIndex + 1);
+        }, 650);
+    }
+
+    async function loadArchives() {
+        addSearchBox();
+        select.disabled = true;
+        setStatus('Loading historical NOAA storm archives…');
+
+        const failures = [];
+        const combined = [];
+
+        for (const dataset of DATASETS) {
+            setStatus('Loading ' + dataset.label + ' historical archive…');
+
+            try {
+                const text = await fetchArchive(dataset.url);
+                const storms = parseHurdat2(text, dataset.label);
+                combined.push(...storms);
+
+                if (!storms.length) {
+                    failures.push(dataset.label + ': no storm records parsed');
+                }
+            } catch (error) {
+                failures.push(dataset.label + ': ' + error.message);
+            }
+        }
+
+        allStorms = combined.sort((a, b) => {
+            const dateB = b.observations[0].date.getTime();
+            const dateA = a.observations[0].date.getTime();
+            return dateB - dateA;
+        });
+
+        if (!allStorms.length) {
+            select.disabled = false;
+            setStatus(
+                'Historical archive could not be loaded. ' +
+                failures.join(' | ') +
+                '. The live map is unaffected; try reloading later.'
+            );
+            return;
+        }
+
+        populateOptions();
+        select.disabled = false;
+
+        const failureNote = failures.length
+            ? ' Some archive data could not be loaded: ' + failures.join(' | ')
+            : '';
+
+        setStatus(
+            'Historical archive ready: ' + allStorms.length +
+            ' storms loaded. Choose a storm to begin replay.' +
+            failureNote
+        );
+    }
+
+    select.addEventListener('change', chooseStorm);
+
+    slider.addEventListener('input', () => {
+        stopPlayback();
+        if (activeStorm) renderObservation(Number(slider.value));
+    });
+
+    if (playButton) {
+        playButton.addEventListener('click', togglePlayback);
+    }
+
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            stopPlayback();
+            if (activeStorm) renderObservation(0);
+        });
+    }
+
+    if (typeof L === 'undefined') {
+        setStatus('History replay needs Leaflet. Reload the page and try again.');
+        return;
+    }
+
+    if (window.stormWatchHistoryMap) {
+        loadArchives();
+    } else {
+        // The Stage 1 map may still be initializing.
+        let attempts = 0;
+
+        const waitForMap = setInterval(() => {
+            attempts++;
+
+            if (window.stormWatchHistoryMap) {
+                clearInterval(waitForMap);
+                loadArchives();
+            } else if (attempts >= 20) {
+                clearInterval(waitForMap);
+                setStatus(
+                    'Historical map is not initialized. Fix Stage 1 before loading archives.'
+                );
+            }
+        }, 500);
+    }
+})();
+
 
