@@ -133,26 +133,37 @@ function extractStorms(data) {
     throw new Error('NOAA response did not contain activeStorms.');
 }
 
-async function fetchStorms() {
-    let directError;
 
+async function fetchStorms() {
+    const errors = [];
+
+    // Try NOAA directly first.
     try {
-        return extractStorms(await fetchJSON(DATA_URL));
+        const data = await fetchJSON(DATA_URL);
+        return extractStorms(data);
     } catch (error) {
-        directError = error;
+        errors.push('NOAA: ' + (error.message || 'request failed'));
         console.warn('Direct NOAA request failed:', error);
     }
 
-    try {
-        return extractStorms(await fetchJSON(BACKUP_URL));
-    } catch (backupError) {
-        throw new Error(
-            'Live data could not be reached. NOAA: ' +
-            (directError?.message || 'failed') +
-            '; backup: ' + (backupError?.message || 'failed')
-        );
+    // Try each backup service in order.
+    for (const url of BACKUP_URLS) {
+        try {
+            const data = await fetchJSON(url);
+            return extractStorms(data);
+        } catch (error) {
+            errors.push(
+                url.includes('allorigins')
+                    ? 'AllOrigins: ' + (error.message || 'request failed')
+                    : 'cors.dev: ' + (error.message || 'request failed')
+            );
+            console.warn('Backup NOAA request failed:', error);
+        }
     }
+
+    throw new Error(errors.join(' | '));
 }
+
 
 
 /* ----------------- STORM DETAILS ----------------- */
