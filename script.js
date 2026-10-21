@@ -403,23 +403,33 @@ function initializeMap() {
     if (!element || liveMap) return;
 
     if (typeof L === 'undefined') {
-        showListMessage('The map library did not load. Check your connection and reload.');
+        showListMessage(
+            'The map library did not load. Check your connection and reload.'
+        );
         return;
     }
 
     liveMap = L.map(element, {
         zoomControl: true,
-        preferCanvas: true
+        preferCanvas: true,
+
+        // Keep the map within one copy of the world.
+        maxBounds: [[-85, -180], [85, 180]],
+        maxBoundsViscosity: 1
     }).setView([20, 0], 2);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
+        noWrap: true,
+        bounds: [[-85, -180], [85, 180]],
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(liveMap);
 
     liveMarkers = L.layerGroup().addTo(liveMap);
+
     setTimeout(() => liveMap?.invalidateSize(), 300);
 }
+
 
 
 /* ----------------- OFFICIAL NHC FORECAST LAYERS ----------------- */
