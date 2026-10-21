@@ -1387,4 +1387,52 @@ setInterval(loadSevereWeather, 5 * 60 * 1000);
 
 
 
+/* =================================
+   STORMWATCH — HISTORICAL MAP SETUP
+   Stage 1: Separate map only
+   ================================= */
+
+(function initializeHistoryMap() {
+    const mapElement = document.getElementById('history-map');
+    const statusElement = document.getElementById('history-status');
+
+    if (!mapElement || mapElement.dataset.initialized === 'true') {
+        return;
+    }
+
+    if (typeof L === 'undefined') {
+        if (statusElement) {
+            statusElement.textContent =
+                'Map library unavailable. Reload the page and try again.';
+        }
+        return;
+    }
+
+    mapElement.dataset.initialized = 'true';
+
+    const historyMap = L.map(mapElement, {
+        zoomControl: true,
+        minZoom: 2,
+        maxZoom: 18
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(historyMap);
+
+    historyMap.setView([25, -70], 3);
+
+    // Save a reference for the next stage without changing the live map.
+    window.stormWatchHistoryMap = historyMap;
+
+    if (statusElement) {
+        statusElement.textContent =
+            'Historical map ready. Storm archive connection is Stage 2.';
+    }
+
+    // Leaflet sometimes needs a size refresh after a new panel is displayed.
+    setTimeout(() => historyMap.invalidateSize(), 250);
+})();
+
 
