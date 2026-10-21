@@ -610,8 +610,11 @@ function renderMap() {
             'Maximum wind: ' + escapeHTML(windText(storm)) + '<br>' +
             'Movement: ' + escapeHTML(movementText(storm)) + '<br>' +
             coords[0].toFixed(2) + '°, ' + coords[1].toFixed(2) + '°';
-
-        L.marker(coords, { icon }).addTo(liveMarkers).bindPopup(popup);
+L.marker(coords, {
+    icon,
+    zIndexOffset: 10000
+}).addTo(liveMarkers).bindPopup(popup);
+        
     });
 }
 
