@@ -802,6 +802,7 @@ function startStormWatch() {
    ===================================================== */
 
 var tornadoWarningLayer = null;
+var tornadoIconLayer = null;
 var tornadoWarnings = [];
 var tornadoLoading = false;
 var tornadoLastSuccess = null;
@@ -842,6 +843,32 @@ async function loadTornadoWarnings() {
 
         // Draw the new warning boundaries before removing the old ones.
         let newLayer = null;
+let newIconLayer = null;
+
+if (typeof L !== 'undefined' && liveMap) {
+    newIconLayer = L.layerGroup();
+
+    const tornadoIcon = L.divIcon({
+        className: 'tornado-map-icon',
+        html: '<span aria-label="Tornado warning">🌪️</span>',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+    });
+
+    freshWarnings.forEach(feature => {
+        if (!feature.geometry) return;
+
+        const warningShape = L.geoJSON(feature);
+        const bounds = warningShape.getBounds();
+
+        if (bounds.isValid()) {
+            L.marker(bounds.getCenter(), {
+                icon: tornadoIcon,
+                title: 'Active Tornado Warning'
+            }).addTo(newIconLayer);
+        }
+    });
+}
 
         if (typeof L !== 'undefined' && liveMap) {
             newLayer = L.geoJSON(freshWarnings, {
