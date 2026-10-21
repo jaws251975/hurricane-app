@@ -137,6 +137,37 @@
       </aside>
     </section>
 
+<!-- Nationwide tornado warnings -->
+<section class="panel tornado-panel">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">NATIONWIDE WEATHER ALERTS</p>
+      <h2>Active tornado warnings</h2>
+    </div>
+    <span id="tornado-count" class="tornado-count">Loading…</span>
+  </div>
+
+  <div class="tornado-info">
+    Red shaded areas show official National Weather Service tornado-warning
+    boundaries. They do not show the exact location or path of a tornado.
+  </div>
+
+  <div id="tornado-status" class="tornado-status" aria-live="polite">
+    Checking nationwide warnings…
+  </div>
+
+  <div id="tornado-list" class="tornado-list" aria-live="polite">
+    <div class="loading">Fetching active tornado warnings…</div>
+  </div>
+
+  <p class="tornado-footer">
+    Source:
+    <a href="https://www.weather.gov/" target="_blank" rel="noopener noreferrer">
+      National Weather Service
+    </a>
+  </p>
+</section>
+
     <!-- Safety notice -->
     <section class="notice">
       <strong>Safety note</strong>
