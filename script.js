@@ -398,6 +398,7 @@ function directionArrowHTML(storm) {
 
 /* ----------------- MAP INITIALIZATION ----------------- */
 
+
 function initializeMap() {
     const element = $('map');
     if (!element || liveMap) return;
@@ -409,27 +410,42 @@ function initializeMap() {
         return;
     }
 
+    const earthBounds = L.latLngBounds(
+        [-85, -180],
+        [85, 180]
+    );
+
     liveMap = L.map(element, {
         zoomControl: true,
         preferCanvas: true,
 
-        // Keep the map within one copy of the world.
-        maxBounds: [[-85, -180], [85, 180]],
-        maxBoundsViscosity: 1
-    }).setView([20, 0], 2);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Keep one Earth on screen.
+        minZoom: 2,
         maxZoom: 18,
-        noWrap: true,
-        bounds: [[-85, -180], [85, 180]],
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(liveMap);
+        maxBounds: earthBounds,
+        maxBoundsViscosity: 1
+    });
+
+    L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            minZoom: 2,
+            maxZoom: 18,
+            noWrap: true,
+            bounds: earthBounds,
+            attribution: '&copy; OpenStreetMap contributors'
+        }
+    ).addTo(liveMap);
+
+    // Start with the whole world visible.
+    liveMap.setView([20, 0], 2);
 
     liveMarkers = L.layerGroup().addTo(liveMap);
 
-    setTimeout(() => liveMap?.invalidateSize(), 300);
+    setTimeout(() => {
+        if (liveMap) liveMap.invalidateSize();
+    }, 300);
 }
-
 
 
 /* ----------------- OFFICIAL NHC FORECAST LAYERS ----------------- */
