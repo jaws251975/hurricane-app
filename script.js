@@ -796,3 +796,191 @@ function startStormWatch() {
     refreshTimer = setInterval(refreshAllData, REFRESH_INTERVAL);
 }
 
+/* =====================================================
+   STORMWATCH — NATIONWIDE TORNADO WARNINGS
+   Add this block at the END of script.js
+   ===================================================== */
+
+var tornadoWarningLayer = null;
+var tornadoWarnings = [];
+var tornadoLoading = false;
+var tornadoLastSuccess = null;
+
+async function loadTornadoWarnings() {
+    if (tornadoLoading) return;
+    tornadoLoading = true;
+
+    const list = document.getElementById('tornado-list');
+    const count = document.getElementById('tornado-count');
+    const status = document.getElementById('tornado-status');
+
+    if (status) status.textContent = 'Checking National Weather Service data…';
+
+    try {
+        const response = await fetch(
+            'https://api.weather.gov/alerts/active?event=Tornado%20Warning',
+            {
+                cache: 'no-store',
+                headers: {
+                    'Accept': 'application/geo+json'
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error('Weather Service returned HTTP ' + response.status);
+        }
+
+        const data = await response.json();
+
+        const freshWarnings = (data.features || []).filter(feature =>
+            feature &&
+            feature.properties &&
+            String(feature.properties.event || '').toLowerCase() ===
+                'tornado warning'
+        );
+
+        // Draw the new warning boundaries before removing the old ones.
+        let newLayer = null;
+
+        if (typeof L !== 'undefined' && liveMap) {
+            newLayer = L.geoJSON(freshWarnings, {
+                style: {
+                    color: '#ff2020',
+                    weight: 3,
+                    opacity: 1,
+                    fillColor: '#ff2020',
+                    fillOpacity: 0.22
+                },
+                onEachFeature: (feature, layer) => {
+                    const p = feature.properties || {};
+                    const area = escapeHTML(p.areaDesc || 'Area not specified');
+                    const headline = escapeHTML(
+                        p.headline || 'Active Tornado Warning'
+                    );
+                    const expires = p.expires
+                        ? new Date(p.expires).toLocaleString()
+                        : 'Not provided';
+
+                    layer.bindPopup(
+                        '<strong style="color:#ff5050">' + headline + '</strong><br>' +
+                        '<strong>Area:</strong> ' + area + '<br>' +
+                        '<strong>Expires:</strong> ' + escapeHTML(expires) +
+                        '<br><small>Official warning boundary, not a tornado track.</small>'
+                    );
+                }
+            });
+        }
+
+        // Keep the previous layer if a replacement could not be created.
+        if (newLayer && liveMap) {
+            newLayer.addTo(liveMap);
+
+            if (tornadoWarningLayer && liveMap.hasLayer(tornadoWarningLayer)) {
+                liveMap.removeLayer(tornadoWarningLayer);
+            }
+
+            tornadoWarningLayer = newLayer;
+        }
+
+        tornadoWarnings = freshWarnings;
+        tornadoLastSuccess = new Date();
+
+        if (count) {
+            count.textContent = String(tornadoWarnings.length);
+        }
+
+        if (status) {
+            status.textContent =
+                'Last checked ' + tornadoLastSuccess.toLocaleTimeString();
+        }
+
+        if (list) {
+            if (!tornadoWarnings.length) {
+                list.innerHTML =
+                    '<div class="empty-state">' +
+                    'No active tornado warnings were returned for the United States. ' +
+                    'This does not mean severe weather is impossible.' +
+                    '</div>';
+            } else {
+                list.innerHTML = tornadoWarnings.map((feature, index) => {
+                    const p = feature.properties || {};
+                    const area = escapeHTML(p.areaDesc || 'Area not specified');
+                    const headline = escapeHTML(
+                        p.headline || 'Tornado Warning'
+                    );
+                    const expires = p.expires
+                        ? new Date(p.expires).toLocaleString()
+                        : 'Expiration not provided';
+
+                    return (
+                        '<button type="button" class="tornado-card" data-tornado-index="' +
+                        index + '">' +
+                        '<span class="tornado-card-title">' + headline + '</span>' +
+                        '<span class="tornado-card-area">' + area + '</span>' +
+                        '<span class="tornado-card-expires">Expires: ' +
+                        escapeHTML(expires) + '</span>' +
+                        '</button>'
+                    );
+                }).join('');
+
+                list.querySelectorAll('.tornado-card').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const feature = tornadoWarnings[
+                            Number(button.dataset.tornadoIndex)
+                        ];
+
+                        if (!feature || !liveMap || !tornadoWarningLayer) return;
+
+                        const layer = tornadoWarningLayer.getLayers().find(item =>
+                            item.feature === feature
+                        );
+
+                        if (layer && layer.getBounds && layer.getBounds().isValid()) {
+                            liveMap.fitBounds(layer.getBounds(), {
+                                padding: [25, 25],
+                                maxZoom: 8
+                            });
+                            layer.openPopup();
+                        }
+                    });
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Tornado warning refresh failed:', error);
+
+        if (status) {
+            status.textContent = tornadoLastSuccess
+                ? 'Refresh failed — showing last successfully loaded warnings'
+                : 'Warning data unavailable. Try Refresh data again.';
+        }
+
+        if (count && !tornadoLastSuccess) {
+            count.textContent = 'Unavailable';
+        }
+
+        if (list && !tornadoLastSuccess) {
+            list.innerHTML =
+                '<div class="error-state">' +
+                'Could not load tornado warnings. Check your connection and try again.' +
+                '</div>';
+        }
+    } finally {
+        tornadoLoading = false;
+    }
+}
+
+// Load warnings after the existing script has initialized the map.
+loadTornadoWarnings();
+
+// Reuse StormWatch's existing refresh button.
+const tornadoRefreshButton = document.getElementById('refresh-button');
+
+if (tornadoRefreshButton) {
+    tornadoRefreshButton.addEventListener('click', loadTornadoWarnings);
+}
+
+// Refresh tornado warnings every five minutes too.
+setInterval(loadTornadoWarnings, 5 * 60 * 1000);
+
