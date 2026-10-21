@@ -1532,92 +1532,125 @@ function renderGlobalEvents(features) {
   });
 }
 
+
 async function loadGlobalEvents() {
   if (globalLoading) return;
   globalLoading = true;
 
   const status = document.getElementById("global-status");
   const list = document.getElementById("global-list");
+  const count = document.getElementById("global-count");
+
+  const urls = [
+    "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP?eventtypes=TC%2CFL",
+    "https://www.gdacs.org/contentdata/xml/gdacs.geojson"
+  ];
 
   try {
-    const response = await fetch(GLOBAL_EVENTS_URL, {
-      headers: { Accept: "application/geo+json, application/json" }
-    });
+    let data = null;
+    let lastError = null;
 
-    if (!response.ok) {
-      throw new Error(`GDACS returned HTTP ${response.status}`);
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          headers: { Accept: "application/geo+json, application/json" }
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+
+        const result = await response.json();
+
+        if (!result || !Array.isArray(result.features)) {
+          throw new Error("The response was not valid GeoJSON.");
+        }
+
+        data = result;
+        break;
+      } catch (error) {
+        lastError = error;
+        console.warn("Global source failed:", url, error);
+      }
     }
 
-    const data = await response.json();
-    const features = Array.isArray(data.features)
-      ? data.features
-      : [];
+    if (!data) {
+      throw lastError || new Error("No global data source responded.");
+    }
 
     if (typeof L === "undefined" || !liveMap) {
-      throw new Error("The map is not ready yet.");
+      throw new Error("The map is not ready.");
     }
 
-    const newLayer = L.geoJSON(data, {
-      pointToLayer(feature, latlng) {
-        return L.circleMarker(latlng, {
-          radius: 7,
-          color: "#ffffff",
-          weight: 1,
-          fillColor: globalEventColor(feature),
-          fillOpacity: 0.9
-        });
-      },
+    const features = data.features.filter(feature =>
+      feature && feature.geometry &&
+      Array.isArray(feature.geometry.coordinates)
+    );
 
-      style(feature) {
-        return {
-          color: globalEventColor(feature),
-          weight: 2,
-          fillColor: globalEventColor(feature),
-          fillOpacity: 0.15
-        };
-      },
+    const newLayer = L.geoJSON(
+      { type: "FeatureCollection", features },
+      {
+        pointToLayer(feature, latlng) {
+          return L.circleMarker(latlng, {
+            radius: 7,
+            color: "#ffffff",
+            weight: 1,
+            fillColor: globalEventColor(feature),
+            fillOpacity: 0.9
+          });
+        },
 
-      onEachFeature(feature, layer) {
-        const p = globalProperties(feature);
-        const name = globalEventName(feature);
-        const type = globalEventType(feature);
-        const country = p.country || p.countryname || "";
-        const level = p.alertlevel || p.alertLevel || "";
+        style(feature) {
+          return {
+            color: globalEventColor(feature),
+            weight: 2,
+            fillColor: globalEventColor(feature),
+            fillOpacity: 0.15
+          };
+        },
 
-        layer.bindPopup(
-          `<strong>${globalEscape(name)}</strong><br>` +
-          `${globalEscape(type)}<br>` +
-          `${globalEscape(country)}<br>` +
-          `${level ? "Alert level: " + globalEscape(level) : ""}`
-        );
+        onEachFeature(feature, layer) {
+          layer.bindPopup(
+            "<strong>" + globalEscape(globalEventName(feature)) +
+            "</strong><br>" +
+            globalEscape(globalEventType(feature))
+          );
+        }
       }
-    });
+    );
 
-    // Replace only the previous global layer.
-    // Existing hurricane and U.S. alert layers remain untouched.
-    if (globalEventLayer) {
+    // Replace only the global layer; preserve all U.S. layers.
+    if (globalEventLayer && liveMap.hasLayer(globalEventLayer)) {
       liveMap.removeLayer(globalEventLayer);
     }
 
-    globalEventLayer = newLayer.addTo(liveMap);
+    globalEventLayer = newLayer;
+    globalEventLayer.addTo(liveMap);
+
     renderGlobalEvents(features);
 
+    if (list) list.dataset.loaded = "true";
     if (status) {
       status.textContent =
-        `Global data updated: ${new Date().toLocaleTimeString()}. ` +
-        "Cyclones are purple; floods are blue.";
+        "Global data updated at " +
+        new Date().toLocaleTimeString() +
+        ". Purple = tropical cyclones; blue = floods.";
     }
   } catch (error) {
-    console.error("Global weather load failed:", error);
+    console.error("Global weather failed:", error);
 
     if (status) {
       status.textContent =
-        "Global data could not load. Existing U.S. weather layers are unchanged.";
+        "Global data unavailable. Check your connection and try again.";
     }
 
-    if (list && !list.dataset.loaded) {
+    if (count) count.textContent = "Unavailable";
+
+    if (list && list.dataset.loaded !== "true") {
       list.innerHTML =
-        '<div class="error-state">Global data unavailable. Try again later.</div>';
+        '<div class="error-state">' +
+        'Could not load global events. Your U.S. storm layers are unaffected.' +
+        '</div>';
     }
   } finally {
     globalLoading = false;
