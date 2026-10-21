@@ -1,0 +1,56 @@
+
+name: Update StormWatch Historical Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 1 * *"
+
+permissions:
+  contents: write
+
+jobs:
+  download-hurdat:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out StormWatch
+        uses: actions/checkout@v4
+
+      - name: Download NOAA archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data
+
+          curl -fLsS --retry 3 \
+            -A "StormWatch historical data updater" \
+            "https://www.nhc.noaa.gov/data/hurdat/hurdat2-1851-2025-092326.txt" \
+            -o data/hurdat2-1851-2025-092326.txt
+
+          curl -fLsS --retry 3 \
+            -A "StormWatch historical data updater" \
+            "https://www.nhc.noaa.gov/data/hurdat/hurdat2-nepac-1949-2025-092926.txt" \
+            -o data/hurdat2-nepac-1949-2025-092926.txt
+
+          grep -qE '^AL[0-9]{6},' \
+            data/hurdat2-1851-2025-092326.txt
+
+          grep -qE '^EP[0-9]{6},' \
+            data/hurdat2-nepac-1949-2025-092926.txt
+
+      - name: Commit updated archives
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/*.txt
+
+          if git diff --cached --quiet; then
+            echo "Historical archives are already up to date."
+          else
+            git commit -m "Update historical hurricane archives"
+            git push
+          fi
