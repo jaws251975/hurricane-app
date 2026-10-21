@@ -410,10 +410,10 @@ function initializeMap() {
         return;
     }
 
-    const earthBounds = L.latLngBounds(
-        [-85, -180],
-        [85, 180]
-    );
+ const earthBounds = L.latLngBounds(
+    [-60, -180],
+    [80, -20]
+);
 
     liveMap = L.map(element, {
         zoomControl: true,
@@ -438,7 +438,7 @@ function initializeMap() {
     ).addTo(liveMap);
 
     // Start with the whole world visible.
-    liveMap.setView([20, 0], 2);
+    liveMap.setView([25, -85], 3);
 
     liveMarkers = L.layerGroup().addTo(liveMap);
 
