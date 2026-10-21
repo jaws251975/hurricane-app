@@ -1386,53 +1386,118 @@ if (severeRefreshButton) {
 setInterval(loadSevereWeather, 5 * 60 * 1000);
 
 
+/* ==========================================
+   STORMWATCH — HISTORICAL MAP DIAGNOSTICS
+   Safe replacement for the Stage 1 map setup
+   ========================================== */
 
-/* =================================
-   STORMWATCH — HISTORICAL MAP SETUP
-   Stage 1: Separate map only
-   ================================= */
+(function initializeHistoryMapSafely() {
+    function startHistoryMap() {
+        const mapElement = document.getElementById('history-map');
+        const statusElement = document.getElementById('history-status');
 
-(function initializeHistoryMap() {
-    const mapElement = document.getElementById('history-map');
-    const statusElement = document.getElementById('history-status');
-
-    if (!mapElement || mapElement.dataset.initialized === 'true') {
-        return;
-    }
-
-    if (typeof L === 'undefined') {
-        if (statusElement) {
-            statusElement.textContent =
-                'Map library unavailable. Reload the page and try again.';
+        function report(message) {
+            if (statusElement) {
+                statusElement.textContent = message;
+            }
+            console.log('[StormWatch History] ' + message);
         }
-        return;
+
+        if (!mapElement) {
+            report('ERROR: Could not find the history-map HTML element.');
+            return;
+        }
+
+        if (!statusElement) {
+            console.error(
+                '[StormWatch History] Could not find history-status in index.html.'
+            );
+        }
+
+        if (typeof L === 'undefined') {
+            report('ERROR: Leaflet did not load. Check your internet connection and reload.');
+            return;
+        }
+
+        try {
+            // Avoid initializing the same Leaflet map twice.
+            if (mapElement._leaflet_id) {
+                report('Map already initialized. Checking map display…');
+
+                if (window.stormWatchHistoryMap) {
+                    window.stormWatchHistoryMap.invalidateSize(true);
+                }
+
+                return;
+            }
+
+            report('Initializing historical map…');
+
+            const historyMap = L.map(mapElement, {
+                zoomControl: true,
+                minZoom: 2,
+                maxZoom: 18
+            });
+
+            window.stormWatchHistoryMap = historyMap;
+
+            const tiles = L.tileLayer(
+                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                {
+                    maxZoom: 18,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }
+            );
+
+            tiles.on('tileerror', function () {
+                report(
+                    'Map created, but map tiles failed to load. Check your connection or try again later.'
+                );
+            });
+
+            tiles.addTo(historyMap);
+            historyMap.setView([25, -70], 3);
+
+            // Allow the browser to lay out the map before measuring it.
+            requestAnimationFrame(function () {
+                historyMap.invalidateSize(true);
+
+                const rect = mapElement.getBoundingClientRect();
+
+                if (rect.width === 0 || rect.height === 0) {
+                    report(
+                        'Map initialized, but its display area has zero size. Check the history-map CSS.'
+                    );
+                    return;
+                }
+
+                report(
+                    'Historical map initialized. If the map is blank, check whether map tiles are loading.'
+                );
+            });
+
+        } catch (error) {
+            console.error('[StormWatch History] Initialization failed:', error);
+
+            report(
+                'MAP ERROR: ' +
+                (error && error.message
+                    ? error.message
+                    : 'Unknown error. Check the browser console.')
+            );
+        }
     }
 
-    mapElement.dataset.initialized = 'true';
-
-    const historyMap = L.map(mapElement, {
-        zoomControl: true,
-        minZoom: 2,
-        maxZoom: 18
-    });
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(historyMap);
-
-    historyMap.setView([25, -70], 3);
-
-    // Save a reference for the next stage without changing the live map.
-    window.stormWatchHistoryMap = historyMap;
-
-    if (statusElement) {
-        statusElement.textContent =
-            'Historical map ready. Storm archive connection is Stage 2.';
+    if (document.readyState === 'loading') {
+        document.addEventListener(
+            'DOMContentLoaded',
+            startHistoryMap,
+            { once: true }
+        );
+    } else {
+        startHistoryMap();
     }
-
-    // Leaflet sometimes needs a size refresh after a new panel is displayed.
-    setTimeout(() => historyMap.invalidateSize(), 250);
 })();
+
 
 
