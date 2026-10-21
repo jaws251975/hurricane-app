@@ -2245,3 +2245,87 @@ function markerIcon(observation) {
 })();
 
 
+/* =====================================
+   STORMWATCH — LIVE / HISTORY SCREENS
+   ===================================== */
+
+(function setupStormWatchScreens() {
+    const main = document.querySelector('main.layout');
+    if (!main || main.dataset.screensReady === 'true') return;
+
+    main.dataset.screensReady = 'true';
+
+    const intro = main.querySelector('.intro');
+    const historyPanel = main.querySelector('.history-panel');
+
+    if (!intro || !historyPanel) return;
+
+    const navigation = document.createElement('nav');
+    navigation.className = 'screen-navigation';
+    navigation.setAttribute('aria-label', 'StormWatch screens');
+
+    navigation.innerHTML = `
+        <button type="button"
+                data-screen="live"
+                aria-pressed="true">
+            🌎 Live Tracker
+        </button>
+        <button type="button"
+                data-screen="history"
+                aria-pressed="false">
+            🌀 Historical Replay
+        </button>
+    `;
+
+    main.insertBefore(navigation, intro);
+
+    const liveElements = [
+        intro,
+        main.querySelector('.status-row'),
+        main.querySelector('.content-grid'),
+        main.querySelector('.tornado-panel'),
+        main.querySelector('.severe-panel'),
+        main.querySelector('.notice'),
+        main.querySelector('footer')
+    ].filter(Boolean);
+
+    function showScreen(screen) {
+        const historical = screen === 'history';
+
+        liveElements.forEach(element => {
+            element.style.display = historical ? 'none' : '';
+        });
+
+        historyPanel.style.display = historical ? '' : 'none';
+
+        navigation.querySelectorAll('button').forEach(button => {
+            button.setAttribute(
+                'aria-pressed',
+                String(button.dataset.screen === screen)
+            );
+        });
+
+        document.body.dataset.activeScreen = screen;
+
+        // Leaflet needs a size refresh after a hidden map is shown.
+        requestAnimationFrame(() => {
+            if (historical && window.stormWatchHistoryMap) {
+                window.stormWatchHistoryMap.invalidateSize(true);
+            }
+
+            if (!historical && typeof liveMap !== 'undefined' && liveMap) {
+                liveMap.invalidateSize(true);
+            }
+        });
+    }
+
+    navigation.addEventListener('click', event => {
+        const button = event.target.closest('button[data-screen]');
+        if (!button) return;
+
+        showScreen(button.dataset.screen);
+    });
+
+    showScreen('live');
+})();
+
