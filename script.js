@@ -1527,16 +1527,18 @@ setInterval(loadSevereWeather, 5 * 60 * 1000);
 
  
 
+
 const DATASETS = [
     {
         label: 'Atlantic',
-        url: 'https://jaws251975.github.io/hurricane-app/data/hurdat2-1851-2025-092326.txt'
+        url: './data/hurdat2-1851-2025-092326.txt'
     },
     {
         label: 'Eastern/Central Pacific',
-        url: 'https://jaws251975.github.io/hurricane-app/data/hurdat2-nepac-1949-2025-092926.txt'
+        url: './data/hurdat2-nepac-1949-2025-092926.txt'
     }
 ];
+
 
 
 
