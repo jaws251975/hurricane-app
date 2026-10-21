@@ -1348,3 +1348,266 @@ if (severeRefreshButton) {
 
 setInterval(loadSevereWeather, 5 * 60 * 1000);
 
+
+/* ==========================================
+   STORMWATCH — GLOBAL WEATHER CENTER
+   GDACS tropical cyclone and flood events
+   ========================================== */
+
+const GLOBAL_EVENTS_URL =
+  "https://www.gdacs.org/gdacsapi/api/events/geteventlist/MAP?eventtypes=TC,FL";
+
+let globalEventLayer = null;
+let globalLoading = false;
+
+function globalEscape(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[ch]);
+}
+
+function globalProperties(feature) {
+  return feature?.properties || {};
+}
+
+function globalEventName(feature) {
+  const p = globalProperties(feature);
+  return p.name || p.eventname || p.title ||
+    p.description || p.eventtype || "Global weather event";
+}
+
+function globalEventType(feature) {
+  const p = globalProperties(feature);
+  const raw = [
+    p.eventtype, p.eventType, p.type, p.event
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  if (raw.includes("fl") || raw.includes("flood")) return "Flood";
+  if (raw.includes("tc") || raw.includes("cyclone") ||
+      raw.includes("hurricane") || raw.includes("typhoon")) {
+    return "Tropical cyclone";
+  }
+
+  const name = globalEventName(feature).toLowerCase();
+  return name.includes("flood") ? "Flood" : "Tropical cyclone";
+}
+
+function globalEventColor(feature) {
+  return globalEventType(feature) === "Flood"
+    ? "#39a8ff"
+    : "#e879f9";
+}
+
+function globalCoordinates(feature) {
+  const geometry = feature?.geometry;
+  if (!geometry) return null;
+
+  if (geometry.type === "Point") {
+    const [lng, lat] = geometry.coordinates || [];
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return [lat, lng];
+    }
+  }
+
+  // Use a representative point for non-point geometries.
+  const coords = geometry.coordinates;
+  const points = [];
+
+  function collect(value) {
+    if (!Array.isArray(value)) return;
+    if (
+      value.length >= 2 &&
+      typeof value[0] === "number" &&
+      typeof value[1] === "number"
+    ) {
+      points.push(value);
+      return;
+    }
+    value.forEach(collect);
+  }
+
+  collect(coords);
+
+  if (!points.length) return null;
+
+  const lng = points.reduce((sum, point) => sum + point[0], 0) /
+    points.length;
+  const lat = points.reduce((sum, point) => sum + point[1], 0) /
+    points.length;
+
+  return Number.isFinite(lat) && Number.isFinite(lng)
+    ? [lat, lng]
+    : null;
+}
+
+function renderGlobalEvents(features) {
+  const list = document.getElementById("global-list");
+  const count = document.getElementById("global-count");
+
+  if (!list || !count) return;
+
+  count.textContent = `${features.length} events`;
+
+  if (!features.length) {
+    list.innerHTML =
+      '<div class="loading">No global cyclone or flood events were returned.</div>';
+    return;
+  }
+
+  list.innerHTML = features.map((feature, index) => {
+    const p = globalProperties(feature);
+    const type = globalEventType(feature);
+    const color = globalEventColor(feature);
+    const name = globalEventName(feature);
+    const level = p.alertlevel || p.alertLevel || p.alert || "";
+    const country = p.country || p.countryname || "";
+    const date = p.fromdate || p.fromDate || p.todate || "";
+
+    return `
+      <button type="button"
+        class="global-event-card"
+        data-global-index="${index}"
+        style="--global-event-color:${color}">
+        <span class="global-event-dot"></span>
+        <span class="global-event-content">
+          <strong>${globalEscape(name)}</strong>
+          <span>${globalEscape(type)}${country ? " · " + globalEscape(country) : ""}</span>
+          <span class="global-event-meta">
+            ${level ? "Alert level: " + globalEscape(level) : ""}
+            ${date ? " · " + globalEscape(date) : ""}
+          </span>
+        </span>
+      </button>
+    `;
+  }).join("");
+
+  list.querySelectorAll("[data-global-index]").forEach(button => {
+    button.addEventListener("click", () => {
+      const feature = features[Number(button.dataset.globalIndex)];
+      const point = globalCoordinates(feature);
+
+      if (point && liveMap) {
+        liveMap.setView(point, Math.max(liveMap.getZoom(), 5));
+      }
+
+      const layer = globalEventLayer;
+      if (layer && feature) {
+        layer.eachLayer(child => {
+          if (child.feature === feature) {
+            child.openPopup?.();
+          }
+        });
+      }
+    });
+  });
+}
+
+async function loadGlobalEvents() {
+  if (globalLoading) return;
+  globalLoading = true;
+
+  const status = document.getElementById("global-status");
+  const list = document.getElementById("global-list");
+
+  try {
+    const response = await fetch(GLOBAL_EVENTS_URL, {
+      headers: { Accept: "application/geo+json, application/json" }
+    });
+
+    if (!response.ok) {
+      throw new Error(`GDACS returned HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const features = Array.isArray(data.features)
+      ? data.features
+      : [];
+
+    if (typeof L === "undefined" || !liveMap) {
+      throw new Error("The map is not ready yet.");
+    }
+
+    const newLayer = L.geoJSON(data, {
+      pointToLayer(feature, latlng) {
+        return L.circleMarker(latlng, {
+          radius: 7,
+          color: "#ffffff",
+          weight: 1,
+          fillColor: globalEventColor(feature),
+          fillOpacity: 0.9
+        });
+      },
+
+      style(feature) {
+        return {
+          color: globalEventColor(feature),
+          weight: 2,
+          fillColor: globalEventColor(feature),
+          fillOpacity: 0.15
+        };
+      },
+
+      onEachFeature(feature, layer) {
+        const p = globalProperties(feature);
+        const name = globalEventName(feature);
+        const type = globalEventType(feature);
+        const country = p.country || p.countryname || "";
+        const level = p.alertlevel || p.alertLevel || "";
+
+        layer.bindPopup(
+          `<strong>${globalEscape(name)}</strong><br>` +
+          `${globalEscape(type)}<br>` +
+          `${globalEscape(country)}<br>` +
+          `${level ? "Alert level: " + globalEscape(level) : ""}`
+        );
+      }
+    });
+
+    // Replace only the previous global layer.
+    // Existing hurricane and U.S. alert layers remain untouched.
+    if (globalEventLayer) {
+      liveMap.removeLayer(globalEventLayer);
+    }
+
+    globalEventLayer = newLayer.addTo(liveMap);
+    renderGlobalEvents(features);
+
+    if (status) {
+      status.textContent =
+        `Global data updated: ${new Date().toLocaleTimeString()}. ` +
+        "Cyclones are purple; floods are blue.";
+    }
+  } catch (error) {
+    console.error("Global weather load failed:", error);
+
+    if (status) {
+      status.textContent =
+        "Global data could not load. Existing U.S. weather layers are unchanged.";
+    }
+
+    if (list && !list.dataset.loaded) {
+      list.innerHTML =
+        '<div class="error-state">Global data unavailable. Try again later.</div>';
+    }
+  } finally {
+    globalLoading = false;
+  }
+}
+
+// Start after the existing map initialization.
+function startGlobalWeatherCenter() {
+  if (!liveMap) {
+    setTimeout(startGlobalWeatherCenter, 500);
+    return;
+  }
+
+  loadGlobalEvents();
+  setInterval(loadGlobalEvents, 6 * 60 * 1000);
+}
+
+startGlobalWeatherCenter();
+
