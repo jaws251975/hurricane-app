@@ -410,7 +410,7 @@ function initializeMap() {
     liveMap = L.map(element, {
         zoomControl: true,
         preferCanvas: true
-    }).setView([22, -65], 3);
+    }).setView([20, 0], 2);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
