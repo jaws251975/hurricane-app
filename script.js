@@ -984,3 +984,9 @@ if (tornadoRefreshButton) {
 // Refresh tornado warnings every five minutes too.
 setInterval(loadTornadoWarnings, 5 * 60 * 1000);
 
+
+/* Start StormWatch after the code has loaded */
+startStormWatch();
+
+/* Reload tornado warnings after the map initializes */
+setTimeout(loadTornadoWarnings, 1500);
