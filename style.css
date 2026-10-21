@@ -914,114 +914,6 @@ footer {
   line-height: 1.7;
 }
 
-/* Severe-weather category dropdowns */
-
-.severe-list {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  padding: 0 14px 14px;
-}
-
-.severe-group {
-  overflow: hidden;
-  border: 1px solid #2b4055;
-  border-radius: 9px;
-  background: #0b1928;
-}
-
-.severe-group-heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-left: 4px solid var(--severe-color, #ffb35c);
-  color: var(--text);
-  cursor: pointer;
-  list-style: none;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.severe-group-heading::-webkit-details-marker {
-  display: none;
-}
-
-.severe-group-heading::after {
-  content: "▾";
-  margin-left: auto;
-  color: var(--severe-color, #ffb35c);
-  font-size: 17px;
-}
-
-.severe-group[open] .severe-group-heading::after {
-  content: "▴";
-}
-
-.severe-group-heading:hover {
-  background: #13283b;
-}
-
-.severe-group-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 25px;
-  height: 25px;
-  padding: 0 7px;
-  border: 1px solid var(--severe-color, #ffb35c);
-  border-radius: 999px;
-  color: var(--severe-color, #ffb35c);
-  font: 700 11px 'DM Mono', monospace;
-}
-
-.severe-group-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  gap: 9px;
-  padding: 0 10px 10px;
-}
-
-.severe-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  padding: 14px;
-  border: 1px solid #2b4055;
-  border-left: 4px solid var(--severe-color, #ffb35c);
-  border-radius: 8px;
-  background: #101f30;
-  color: var(--text);
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-}
-
-.severe-card:hover {
-  border-color: var(--severe-color, #ffb35c);
-  background: #172b3f;
-}
-
-.severe-card-title {
-  color: var(--severe-color, #ffb35c);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.severe-card-area,
-.severe-card-meta {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.6;
-}
-
-.severe-empty {
-  padding: 20px 14px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.7;
-}
 
 
 /* ==========================================
@@ -1166,6 +1058,155 @@ footer {
     flex-basis: 11px;
     width: 11px;
     height: 11px;
+  }
+}
+
+/* STORMWATCH — SEVERE WEATHER DROPDOWN DESIGN */
+
+.severe-panel .severe-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 13px !important;
+  padding: 0 14px 18px !important;
+}
+
+.severe-panel details.severe-group {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background: #000 !important;
+  border: 2px solid #29364b !important;
+  border-radius: 22px !important;
+  box-shadow: none !important;
+}
+
+/* Full-width dropdown heading */
+.severe-panel details.severe-group > summary.severe-group-heading {
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 18px !important;
+  width: 100% !important;
+  min-height: 96px !important;
+  padding: 18px 25px !important;
+  background: #000 !important;
+  border: none !important;
+  color: #fff !important;
+  font-size: clamp(20px, 5vw, 30px) !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  list-style: none !important;
+}
+
+.severe-panel .severe-group-heading::-webkit-details-marker {
+  display: none !important;
+}
+
+.severe-panel .severe-group-heading::marker {
+  content: "" !important;
+}
+
+/* Category-colored dot */
+.severe-panel .severe-group-heading::before {
+  content: "" !important;
+  display: block !important;
+  flex: 0 0 11px !important;
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 50% !important;
+  background: var(--severe-color, #ff9f43) !important;
+}
+
+/* Category name */
+.severe-panel .severe-group-heading > span:first-of-type {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  color: #fff !important;
+  font-size: inherit !important;
+  font-weight: 500 !important;
+  overflow-wrap: anywhere !important;
+}
+
+/* Alert number */
+.severe-panel .severe-group-heading .severe-group-count {
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  margin-left: auto !important;
+  padding: 0 4px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #aaa !important;
+  font-family: inherit !important;
+  font-size: 0.9em !important;
+  font-weight: 400 !important;
+}
+
+/* Chevron */
+.severe-panel .severe-group-heading::after {
+  content: "" !important;
+  display: block !important;
+  flex: 0 0 11px !important;
+  width: 11px !important;
+  height: 11px !important;
+  margin-left: 5px !important;
+  border: none !important;
+  border-right: 3px solid #aaa !important;
+  border-bottom: 3px solid #aaa !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  transform: rotate(45deg) translateY(-3px) !important;
+  transition: transform 0.2s ease !important;
+}
+
+.severe-panel .severe-group[open] > .severe-group-heading::after {
+  transform: rotate(225deg) translate(-2px, -2px) !important;
+}
+
+.severe-panel .severe-group[open] > .severe-group-heading {
+  border-bottom: 1px solid #29364b !important;
+}
+
+/* Expanded alert list */
+.severe-panel .severe-group-cards {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding: 14px !important;
+  background: #050505 !important;
+}
+
+.severe-panel .severe-group-cards .severe-card {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  padding: 15px !important;
+  border: 1px solid #29364b !important;
+  border-left: 4px solid var(--severe-color, #29364b) !important;
+  border-radius: 12px !important;
+  background: #0b0e14 !important;
+  color: #fff !important;
+  text-align: left !important;
+}
+
+.severe-panel .severe-card-title {
+  color: var(--severe-color, #fff) !important;
+}
+
+.severe-panel .severe-card-area,
+.severe-panel .severe-card-meta {
+  line-height: 1.6 !important;
+}
+
+@media (max-width: 600px) {
+  .severe-panel .severe-group-heading {
+    min-height: 88px !important;
+    gap: 14px !important;
+    padding: 16px 20px !important;
+    font-size: clamp(19px, 5vw, 28px) !important;
   }
 }
 
