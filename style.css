@@ -1496,3 +1496,109 @@ footer {
   }
 }
 
+
+/* =====================================
+   STORMWATCH — TWO SCREEN LAYOUT
+   ===================================== */
+
+.screen-navigation {
+    display: flex;
+    gap: 12px;
+    margin: 0 0 24px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #081624;
+}
+
+.screen-navigation button {
+    flex: 1;
+    min-height: 48px;
+    padding: 12px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.screen-navigation button[aria-pressed="true"] {
+    border-color: #28516a;
+    background: #123047;
+    color: #ffffff;
+    box-shadow: inset 0 0 0 1px #52d8e833;
+}
+
+#map {
+    height: 72vh;
+    min-height: 520px;
+}
+
+.content-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.storm-panel {
+    margin-top: 16px;
+}
+
+#history-map {
+    width: 100%;
+    height: 76vh;
+    min-height: 560px;
+    background: #081624;
+}
+
+.history-hurricane-icon {
+    background: transparent !important;
+    border: 0 !important;
+}
+
+.history-hurricane-marker {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    filter: drop-shadow(0 0 7px var(--storm-color));
+}
+
+.history-category-badge {
+    position: absolute;
+    top: -5px;
+    right: -7px;
+    min-width: 23px;
+    height: 23px;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ffffff;
+    border-radius: 20px;
+    color: #07111f;
+    font: 900 12px Arial, sans-serif;
+    box-shadow: 0 0 8px #00000099;
+}
+
+@media (max-width: 650px) {
+    #map {
+        height: 68vh;
+        min-height: 430px;
+    }
+
+    #history-map {
+        height: 72vh;
+        min-height: 460px;
+    }
+
+    .screen-navigation {
+        gap: 6px;
+    }
+
+    .screen-navigation button {
+        padding: 10px 5px;
+        font-size: 12px;
+    }
+}
+
