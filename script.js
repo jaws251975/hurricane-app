@@ -12,6 +12,9 @@ const BACKUP_URLS = [
     'https://api.allorigins.win/raw?url=' +
         encodeURIComponent(DATA_URL),
 
+    'https://corsproxy.io/?url=' +
+        encodeURIComponent(DATA_URL),
+
     'https://proxy.cors.dev/' + DATA_URL
 ];
 
