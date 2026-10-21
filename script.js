@@ -508,8 +508,8 @@ async function loadForecastLayers() {
                         html: '<span class="forecast-wind-label">' +
                             escapeHTML(time) + '<br>' +
                             escapeHTML(forecastWind) + '</span>',
-                        iconSize: [124, 36],
-                        iconAnchor: [62, 18]
+                       iconSize: [88, 28],
+iconAnchor: [44, 14]
                     });
 
                     return L.marker(latlng, { icon }).bindPopup(
