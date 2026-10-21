@@ -749,3 +749,87 @@ footer {
 }
 
 
+/* Nationwide tornado warning panel */
+
+.tornado-panel {
+  margin-top: 20px;
+}
+
+.tornado-count {
+  color: #ff6b6b;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.tornado-info {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.tornado-status {
+  padding: 12px 20px;
+  color: var(--cyan);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+}
+
+.tornado-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.tornado-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #713333;
+  border-left: 4px solid #ff3030;
+  border-radius: 8px;
+  background: #211821;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tornado-card:hover {
+  border-color: #ff5050;
+  background: #302027;
+}
+
+.tornado-card-title {
+  color: #ff7777;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.tornado-card-area {
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.tornado-card-expires {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tornado-footer {
+  margin: 0;
+  padding: 0 20px 18px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tornado-footer a {
+  color: var(--cyan);
+}
+
