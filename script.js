@@ -1525,16 +1525,18 @@ setInterval(loadSevereWeather, 5 * 60 * 1000);
     if (window.stormWatchHistoryStage2Loaded) return;
     window.stormWatchHistoryStage2Loaded = true;
 
-    const DATASETS = [
-        {
-            label: 'Atlantic',
-            url: 'https://www.nhc.noaa.gov/data/hurdat/hurdat2-1851-2025-092326.txt'
-        },
-        {
-            label: 'Eastern/Central Pacific',
-            url: 'https://www.nhc.noaa.gov/data/hurdat/hurdat2-nepac-1949-2025-092926.txt'
-        }
-    ];
+ 
+const DATASETS = [
+    {
+        label: 'Atlantic',
+        url: './data/hurdat2-1851-2025-092326.txt'
+    },
+    {
+        label: 'Eastern/Central Pacific',
+        url: './data/hurdat2-nepac-1949-2025-092926.txt'
+    }
+];
+
 
     let allStorms = [];
     let activeStorm = null;
