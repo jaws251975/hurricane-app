@@ -437,11 +437,13 @@ function initializeMap() {
     L.tileLayer(
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {
-            minZoom: 2,
-            maxZoom: 18,
-            noWrap: true,
-            bounds: earthBounds,
-            attribution: '&copy; OpenStreetMap contributors'
+             {
+    minZoom: 2,
+    maxZoom: 18,
+    noWrap: true,
+    bounds: historyBounds,
+    attribution: '&copy; OpenStreetMap contributors'
+}
         }
     ).addTo(liveMap);
 
