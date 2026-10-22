@@ -418,6 +418,11 @@ function initializeMap() {
         return;
     }
 
+const historyBounds = L.latLngBounds(
+    [-60, -180],
+    [80, 180]
+);
+
  const earthBounds = L.latLngBounds(
     [-60, -180],
     [80, -20]
