@@ -38,7 +38,39 @@
         </div>
       </div>
 
-      <form id="image-search-form" class="image-search-form">
+   <form id="image-search-form" class="image-search-form">
+  <label for="image-search-input">Hurricane name</label>
+
+  <div class="image-search-controls">
+    <input
+      id="image-search-input"
+      type="search"
+      placeholder="Example: Katrina"
+      value="Katrina"
+      required
+    >
+
+    <input
+      id="image-search-year"
+      type="number"
+      min="1851"
+      max="2025"
+      value="2005"
+      placeholder="Year"
+      aria-label="Hurricane year"
+      required
+    >
+
+    <button class="refresh-button" type="submit">
+      Find storm photos
+    </button>
+  </div>
+
+  <p class="image-search-hint">
+    Enter the exact storm name and year to distinguish storms
+    with the same name.
+  </p>
+</form>
         <label for="image-search-input">Hurricane name</label>
         <div class="image-search-controls">
           <input id="image-search-input" type="search"
