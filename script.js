@@ -1457,7 +1457,7 @@ const historyMap = L.map(mapElement, {
             noWrap: true,
             attribution: '&copy; OpenStreetMap contributors'
         }
-    ).addTo(liveMap);
+    );
 
 
             tiles.on('tileerror', function () {
