@@ -1738,3 +1738,71 @@ footer {
         font-size: 13px;
     }
 }
+
+
+
+/* FIX: Keep historical replay panels visible */
+.history-panel {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+  color: var(--text, #edf5ff);
+}
+
+.history-panel > .panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px;
+}
+
+.history-panel > .history-info,
+.history-panel > .history-footnote {
+  display: block;
+  padding: 0 20px 16px;
+}
+
+.history-panel .history-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 0 20px 16px;
+}
+
+.history-panel #history-storm,
+.history-panel #history-search,
+.history-panel .history-status {
+  display: block;
+  visibility: visible;
+  opacity: 1;
+}
+
+.history-panel .history-map-frame {
+  display: block;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.history-panel .history-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px 20px;
+}
+
+.history-panel .history-details > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+@media (min-width: 800px) {
+  .history-panel .history-details {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
