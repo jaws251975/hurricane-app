@@ -423,3 +423,24 @@
 
   reset();
 })();
+
+window.addEventListener("load", function () {
+  const canvas = document.getElementById("game-canvas");
+  if (!canvas) {
+    alert("Game error: canvas not found!");
+    return;
+  }
+
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#071b35";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "white";
+  ctx.font = "28px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("HURRICANE RUN", canvas.width / 2, 100);
+  ctx.font = "48px Arial";
+  ctx.fillText("🌀", canvas.width / 2, 250);
+  ctx.font = "20px Arial";
+  ctx.fillText("Canvas is working!", canvas.width / 2, 320);
+});
