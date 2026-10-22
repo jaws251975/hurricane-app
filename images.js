@@ -28,6 +28,7 @@
   let stormAngle = 0;
   let touchingLand = false;
   let gameOver = false;
+  let gameWon = false;
 
   const categoryNames = [
     'Tropical Depression',
@@ -76,10 +77,7 @@
         r: 19
       };
       attempts++;
-    } while (
-      attempts < 60 &&
-      onLand(cloud.x, cloud.y)
-    );
+    } while (attempts < 60 && onLand(cloud.x, cloud.y));
 
     return cloud;
   }
@@ -87,22 +85,16 @@
   function makeHouses() {
     const result = [];
 
-    // Houses are placed on the islands.
-    islands.forEach((island, index) => {
+    islands.forEach(island => {
       const count = Math.max(2, Math.floor(island.rx / 22));
 
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
         const distance = Math.sqrt(Math.random()) * 0.68;
 
-        const x = island.x +
-          Math.cos(angle) * island.rx * distance;
-        const y = island.y +
-          Math.sin(angle) * island.ry * distance;
-
         result.push({
-          x,
-          y,
+          x: island.x + Math.cos(angle) * island.rx * distance,
+          y: island.y + Math.sin(angle) * island.ry * distance,
           alive: true,
           size: 8 + Math.random() * 3,
           color: ['#f5d06f', '#f18a70', '#a8d8ff'][i % 3]
@@ -123,22 +115,23 @@
     hitsEl.textContent = hits;
 
     let powerEl = document.getElementById('storm-power');
+
     if (!powerEl) {
       powerEl = document.createElement('div');
       powerEl.id = 'storm-power';
       powerEl.style.cssText =
         'margin:8px 0;font-weight:bold;color:#b9e9f5';
+
       const hud = scoreEl.parentElement?.parentElement;
+
       if (hud) hud.appendChild(powerEl);
       else canvas.parentElement.insertBefore(powerEl, canvas);
     }
 
     powerEl.textContent =
-      'Power: ' + Math.ceil(power) + '%  |  ' +
-      categoryNames[category];
+      'Power: ' + Math.ceil(power) + '% | ' + categoryNames[category];
 
-    powerEl.style.color =
-      power < 25 ? '#ff6b6b' : '#b9e9f5';
+    powerEl.style.color = power < 25 ? '#ff6b6b' : '#b9e9f5';
   }
 
   function reset() {
@@ -171,6 +164,7 @@
     stormAngle = 0;
     touchingLand = false;
     gameOver = false;
+    gameWon = false;
     keys.clear();
 
     startBtn.textContent = 'Start game';
@@ -206,7 +200,6 @@
     touchingLand = onLand(storm.x, storm.y);
 
     if (touchingLand) {
-      // Staying over land drains power continuously.
       power -= 18 * dt;
 
       if (!wasLand && landCooldown <= 0) {
@@ -216,7 +209,6 @@
           'Over land! Your hurricane is losing power!';
       }
     } else {
-      // Recover a little power over the ocean.
       power = Math.min(100, power + 3 * dt);
     }
 
@@ -235,7 +227,7 @@
       }
     }
 
-    // Destroy each house once for 25 points.
+    // Destroy houses for 25 points each.
     for (const house of houses) {
       if (!house.alive) continue;
 
@@ -247,7 +239,19 @@
       }
     }
 
-    // Lose a few points on land, but never go below zero.
+    // WIN when every house has been destroyed.
+    if (houses.length > 0 && houses.every(house => !house.alive)) {
+      gameWon = true;
+      running = false;
+      paused = false;
+      startBtn.textContent = 'You won!';
+      message.textContent =
+        'YOU WIN! Every house has been destroyed! Final score: ' + score;
+      updateHUD();
+      return;
+    }
+
+    // Lose points while over land.
     if (touchingLand && landCooldown <= 0) {
       score = Math.max(0, score - 5);
       landCooldown = 1.2;
@@ -308,6 +312,7 @@
     ctx.stroke();
 
     ctx.fillStyle = '#4b986a';
+
     ctx.beginPath();
     ctx.ellipse(
       -island.rx * 0.18, -island.ry * 0.08,
@@ -335,14 +340,12 @@
     ctx.save();
     ctx.translate(house.x, house.y);
 
-    // House body.
     ctx.fillStyle = house.color;
     ctx.strokeStyle = '#253442';
     ctx.lineWidth = 1.5;
     ctx.fillRect(-s * 0.65, -s * 0.2, s * 1.3, s);
     ctx.strokeRect(-s * 0.65, -s * 0.2, s * 1.3, s);
 
-    // Roof.
     ctx.fillStyle = '#a94e42';
     ctx.beginPath();
     ctx.moveTo(-s, -s * 0.2);
@@ -352,7 +355,6 @@
     ctx.fill();
     ctx.stroke();
 
-    // Door.
     ctx.fillStyle = '#563c30';
     ctx.fillRect(-s * 0.16, s * 0.25, s * 0.32, s * 0.55);
 
@@ -410,7 +412,7 @@
     ctx.font = 'bold 13px system-ui';
     ctx.fillStyle = colors[category];
     ctx.fillText(
-      category === 0 ? 'TD' : 'CAT ' + category,
+      'CAT ' + category,
       storm.x,
       storm.y - storm.r - 9
     );
@@ -451,9 +453,11 @@
     const barW = 180;
     ctx.fillStyle = '#172c3d';
     ctx.fillRect(16, 16, barW, 16);
+
     ctx.fillStyle = power < 25 ? '#ff5252' :
       power < 55 ? '#ffc857' : '#44d18a';
     ctx.fillRect(16, 16, barW * power / 100, 16);
+
     ctx.strokeStyle = '#ffffffaa';
     ctx.strokeRect(16, 16, barW, 16);
 
@@ -464,37 +468,56 @@
 
     ctx.textAlign = 'right';
     ctx.fillText(categoryNames[category], W - 16, 28);
-    ctx.fillText('Next upgrade: ' +
+    ctx.fillText(
+      'Next upgrade: ' +
       (category < 5 ? (category * 150 - score) + ' pts' : 'MAX'),
-      W - 16, 47);
+      W - 16, 47
+    );
 
-    if (!running || paused || gameOver) {
+    // End screens: victory, game over, pause, or starting screen.
+    if (gameWon || !running || paused || gameOver) {
       ctx.fillStyle = '#04111de8';
       ctx.fillRect(0, 0, W, H);
 
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = gameWon ? '#44ffad' : '#ffffff';
       ctx.font = '800 38px system-ui';
 
-      const heading = gameOver ? 'HURRICANE DEPLETED' :
-        paused ? 'PAUSED' : 'HURRICANE RUN';
+      let heading;
+      let sub;
+
+      if (gameWon) {
+        heading = 'YOU WIN!';
+        sub = 'All houses destroyed!';
+      } else if (gameOver) {
+        heading = 'HURRICANE DEPLETED';
+        sub = 'Final score: ' + score + ' — press Restart';
+      } else if (paused) {
+        heading = 'PAUSED';
+        sub = 'Press Resume to continue';
+      } else {
+        heading = 'HURRICANE RUN';
+        sub = 'Collect clouds. Destroy houses. Avoid land.';
+      }
 
       ctx.fillText(heading, W / 2, H / 2 - 25);
 
       ctx.font = '18px system-ui';
       ctx.fillStyle = '#b9d6e8';
-
-      const sub = gameOver ?
-        'Final score: ' + score + ' — press Restart' :
-        paused ? 'Press Resume to continue' :
-        'Collect clouds. Destroy houses. Avoid land.';
-
       ctx.fillText(sub, W / 2, H / 2 + 15);
 
-      if (!gameOver && !paused) {
+      if (gameWon) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px system-ui';
+        ctx.fillText('Final score: ' + score, W / 2, H / 2 + 53);
         ctx.font = '15px system-ui';
-        ctx.fillText('Every 150 points = a stronger category!',
-          W / 2, H / 2 + 48);
+        ctx.fillText('Press Restart to play again', W / 2, H / 2 + 83);
+      } else if (!gameOver && !paused) {
+        ctx.font = '15px system-ui';
+        ctx.fillText(
+          'Every 150 points = a stronger category!',
+          W / 2, H / 2 + 48
+        );
       }
     }
   }
@@ -514,6 +537,11 @@
   }
 
   function start() {
+    if (gameWon) {
+      message.textContent = 'You won! Press Restart to play again.';
+      return;
+    }
+
     if (gameOver) {
       message.textContent = 'Press Restart to begin a new hurricane.';
       return;
@@ -541,7 +569,7 @@
   }
 
   function togglePause() {
-    if (!running) return;
+    if (!running || gameWon || gameOver) return;
 
     paused = !paused;
     pauseBtn.textContent = paused ? 'Resume' : 'Pause';
@@ -555,13 +583,15 @@
     const key = event.key.length === 1 ?
       event.key.toLowerCase() : event.key;
 
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp',
-      'ArrowDown', ' '].includes(event.key)) {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ']
+        .includes(event.key)) {
       event.preventDefault();
     }
 
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-      'w', 'a', 's', 'd'].includes(key)) {
+    if ([
+      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+      'w', 'a', 's', 'd'
+    ].includes(key)) {
       keys.add(key);
     }
 
@@ -581,6 +611,8 @@
       left: 'ArrowLeft',
       right: 'ArrowRight'
     }[button.dataset.dir];
+
+    if (!key) return;
 
     const press = event => {
       event.preventDefault();
@@ -604,4 +636,3 @@
 
   reset();
 })();
-
