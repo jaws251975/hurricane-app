@@ -407,6 +407,7 @@ function directionArrowHTML(storm) {
 /* ----------------- MAP INITIALIZATION ----------------- */
 
 
+
 function initializeMap() {
     const element = $('map');
     if (!element || liveMap) return;
@@ -418,21 +419,14 @@ function initializeMap() {
         return;
     }
 
-const historyBounds = L.latLngBounds(
-    [-60, -180],
-    [80, 180]
-);
-
- const earthBounds = L.latLngBounds(
-    [-60, -180],
-    [80, -20]
-);
+    const earthBounds = L.latLngBounds(
+        [-60, -180],
+        [80, 180]
+    );
 
     liveMap = L.map(element, {
         zoomControl: true,
         preferCanvas: true,
-
-        // Keep one Earth on screen.
         minZoom: 2,
         maxZoom: 18,
         maxBounds: earthBounds,
@@ -442,23 +436,21 @@ const historyBounds = L.latLngBounds(
     L.tileLayer(
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {
-             {
-    minZoom: 2,
-    maxZoom: 18,
-    noWrap: true,
-    bounds: historyBounds,
-    attribution: '&copy; OpenStreetMap contributors'
-}
+            minZoom: 2,
+            maxZoom: 18,
+            noWrap: true,
+            attribution: '&copy; OpenStreetMap contributors'
         }
     ).addTo(liveMap);
 
-    // Start with the whole world visible.
     liveMap.setView([25, -85], 3);
 
     liveMarkers = L.layerGroup().addTo(liveMap);
 
     setTimeout(() => {
-        if (liveMap) liveMap.invalidateSize();
+        if (liveMap) {
+            liveMap.invalidateSize();
+        }
     }, 300);
 }
 
