@@ -18,14 +18,25 @@
   const H = canvas.height;
   const keys = new Set();
 
-  let storm, clouds, islands;
-  let score, collected, hits;
+  let storm, clouds, islands, houses;
+  let score, collected, hits, power, category;
   let running = false;
   let paused = false;
   let animationId = null;
   let lastTime = 0;
   let landCooldown = 0;
   let stormAngle = 0;
+  let touchingLand = false;
+  let gameOver = false;
+
+  const categoryNames = [
+    'Tropical Depression',
+    'Category 1',
+    'Category 2',
+    'Category 3',
+    'Category 4',
+    'Category 5'
+  ];
 
   function makeIslands() {
     return [
@@ -38,59 +49,6 @@
     ];
   }
 
-  function spawnCloud() {
-    let cloud;
-    let attempts = 0;
-
-    do {
-      cloud = {
-        x: 35 + Math.random() * (W - 70),
-        y: 35 + Math.random() * (H - 70),
-        r: 19
-      };
-      attempts++;
-    } while (
-      attempts < 50 &&
-      islands.some(island => contains(cloud.x, cloud.y, island))
-    );
-
-    return cloud;
-  }
-
-  function reset() {
-    if (animationId !== null) {
-      cancelAnimationFrame(animationId);
-      animationId = null;
-    }
-
-    storm = { x: W / 2, y: H / 2, r: 23, speed: 225 };
-    islands = makeIslands();
-    clouds = Array.from({ length: 8 }, spawnCloud);
-
-    score = 0;
-    collected = 0;
-    hits = 0;
-    running = false;
-    paused = false;
-    lastTime = 0;
-    landCooldown = 0;
-    stormAngle = 0;
-    keys.clear();
-
-    updateHUD();
-    startBtn.textContent = 'Start game';
-    pauseBtn.textContent = 'Pause';
-    message.textContent =
-      'Ready! Collect clouds (+10) and avoid land (−5).';
-    draw();
-  }
-
-  function updateHUD() {
-    scoreEl.textContent = score;
-    cloudEl.textContent = collected;
-    hitsEl.textContent = hits;
-  }
-
   function contains(x, y, island) {
     const cos = Math.cos(-island.a);
     const sin = Math.sin(-island.a);
@@ -99,10 +57,129 @@
     const rx = dx * cos - dy * sin;
     const ry = dx * sin + dy * cos;
 
-    return (
-      (rx * rx) / (island.rx * island.rx) +
-      (ry * ry) / (island.ry * island.ry)
-    ) <= 1;
+    return (rx * rx) / (island.rx * island.rx) +
+      (ry * ry) / (island.ry * island.ry) <= 1;
+  }
+
+  function onLand(x, y) {
+    return islands.some(island => contains(x, y, island));
+  }
+
+  function spawnCloud() {
+    let cloud;
+    let attempts = 0;
+
+    do {
+      cloud = {
+        x: 30 + Math.random() * (W - 60),
+        y: 30 + Math.random() * (H - 60),
+        r: 19
+      };
+      attempts++;
+    } while (
+      attempts < 60 &&
+      onLand(cloud.x, cloud.y)
+    );
+
+    return cloud;
+  }
+
+  function makeHouses() {
+    const result = [];
+
+    // Houses are placed on the islands.
+    islands.forEach((island, index) => {
+      const count = Math.max(2, Math.floor(island.rx / 22));
+
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.sqrt(Math.random()) * 0.68;
+
+        const x = island.x +
+          Math.cos(angle) * island.rx * distance;
+        const y = island.y +
+          Math.sin(angle) * island.ry * distance;
+
+        result.push({
+          x,
+          y,
+          alive: true,
+          size: 8 + Math.random() * 3,
+          color: ['#f5d06f', '#f18a70', '#a8d8ff'][i % 3]
+        });
+      }
+    });
+
+    return result;
+  }
+
+  function getCategory() {
+    return Math.min(5, 1 + Math.floor(score / 150));
+  }
+
+  function updateHUD() {
+    scoreEl.textContent = score;
+    cloudEl.textContent = collected;
+    hitsEl.textContent = hits;
+
+    let powerEl = document.getElementById('storm-power');
+    if (!powerEl) {
+      powerEl = document.createElement('div');
+      powerEl.id = 'storm-power';
+      powerEl.style.cssText =
+        'margin:8px 0;font-weight:bold;color:#b9e9f5';
+      const hud = scoreEl.parentElement?.parentElement;
+      if (hud) hud.appendChild(powerEl);
+      else canvas.parentElement.insertBefore(powerEl, canvas);
+    }
+
+    powerEl.textContent =
+      'Power: ' + Math.ceil(power) + '%  |  ' +
+      categoryNames[category];
+
+    powerEl.style.color =
+      power < 25 ? '#ff6b6b' : '#b9e9f5';
+  }
+
+  function reset() {
+    if (animationId !== null) {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+    }
+
+    islands = makeIslands();
+    clouds = Array.from({ length: 8 }, spawnCloud);
+    houses = makeHouses();
+
+    score = 0;
+    collected = 0;
+    hits = 0;
+    power = 100;
+    category = 1;
+
+    storm = {
+      x: W / 2,
+      y: H / 2,
+      r: 23,
+      speed: 225
+    };
+
+    running = false;
+    paused = false;
+    lastTime = 0;
+    landCooldown = 0;
+    stormAngle = 0;
+    touchingLand = false;
+    gameOver = false;
+    keys.clear();
+
+    startBtn.textContent = 'Start game';
+    pauseBtn.textContent = 'Pause';
+    message.textContent =
+      'Collect clouds (+10), destroy houses (+25), and avoid land!';
+
+    updateHUD();
+    draw();
   }
 
   function update(dt) {
@@ -116,55 +193,93 @@
 
     const length = Math.hypot(dx, dy) || 1;
 
-    storm.x += (dx / length) * storm.speed * dt;
-    storm.y += (dy / length) * storm.speed * dt;
+    storm.x += dx / length * storm.speed * dt;
+    storm.y += dy / length * storm.speed * dt;
 
-    storm.x = Math.max(
-      storm.r,
-      Math.min(W - storm.r, storm.x)
-    );
-    storm.y = Math.max(
-      storm.r,
-      Math.min(H - storm.r, storm.y)
-    );
+    storm.x = Math.max(storm.r, Math.min(W - storm.r, storm.x));
+    storm.y = Math.max(storm.r, Math.min(H - storm.r, storm.y));
 
-    stormAngle += dt * 2.5;
+    stormAngle += dt * (2.5 + category * 0.35);
     landCooldown = Math.max(0, landCooldown - dt);
 
-    // Collect clouds.
+    const wasLand = touchingLand;
+    touchingLand = onLand(storm.x, storm.y);
+
+    if (touchingLand) {
+      // Staying over land drains power continuously.
+      power -= 18 * dt;
+
+      if (!wasLand && landCooldown <= 0) {
+        hits++;
+        landCooldown = 1.2;
+        message.textContent =
+          'Over land! Your hurricane is losing power!';
+      }
+    } else {
+      // Recover a little power over the ocean.
+      power = Math.min(100, power + 3 * dt);
+    }
+
+    power = Math.max(0, Math.min(100, power));
+
+    // Collect clouds for 10 points.
     for (let i = 0; i < clouds.length; i++) {
       const cloud = clouds[i];
 
-      if (
-        Math.hypot(storm.x - cloud.x, storm.y - cloud.y) <
-        storm.r + cloud.r
-      ) {
+      if (Math.hypot(storm.x - cloud.x, storm.y - cloud.y)
+          < storm.r + cloud.r) {
         score += 10;
         collected++;
         clouds[i] = spawnCloud();
-        updateHUD();
         message.textContent = 'Cloud collected! +10 points!';
       }
     }
 
-    // Land costs points, with a short cooldown to prevent rapid penalties.
-    const touchingLand = islands.some(island =>
-      contains(storm.x, storm.y, island)
-    );
+    // Destroy each house once for 25 points.
+    for (const house of houses) {
+      if (!house.alive) continue;
 
+      if (Math.hypot(storm.x - house.x, storm.y - house.y)
+          < storm.r + house.size) {
+        house.alive = false;
+        score += 25;
+        message.textContent = 'House destroyed! +25 points!';
+      }
+    }
+
+    // Lose a few points on land, but never go below zero.
     if (touchingLand && landCooldown <= 0) {
       score = Math.max(0, score - 5);
-      hits++;
       landCooldown = 1.2;
-      updateHUD();
-      message.textContent = 'Land hit! −5 points. Get back over water!';
     }
+
+    const newCategory = getCategory();
+
+    if (newCategory > category) {
+      category = newCategory;
+      storm.r = 23 + (category - 1) * 4;
+      storm.speed = 225 + (category - 1) * 8;
+
+      message.textContent =
+        'UPGRADE! You reached ' + categoryNames[category] +
+        '! Your hurricane is bigger and faster!';
+    }
+
+    if (power <= 0) {
+      power = 0;
+      gameOver = true;
+      running = false;
+      startBtn.textContent = 'Start game';
+      message.textContent =
+        'Your hurricane lost all its power! Press Restart to try again.';
+    }
+
+    updateHUD();
   }
 
   function drawCloud(cloud) {
     ctx.save();
     ctx.translate(cloud.x, cloud.y);
-
     ctx.fillStyle = '#f3fbff';
     ctx.strokeStyle = '#b9e9f5';
     ctx.lineWidth = 2;
@@ -175,7 +290,6 @@
     ctx.arc(cloud.r * 0.45, 3, cloud.r * 0.4, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-
     ctx.restore();
   }
 
@@ -194,60 +308,90 @@
     ctx.stroke();
 
     ctx.fillStyle = '#4b986a';
-
     ctx.beginPath();
     ctx.ellipse(
-      -island.rx * 0.18,
-      -island.ry * 0.08,
-      island.rx * 0.48,
-      island.ry * 0.38,
-      -0.3,
-      0,
-      Math.PI * 2
+      -island.rx * 0.18, -island.ry * 0.08,
+      island.rx * 0.48, island.ry * 0.38,
+      -0.3, 0, Math.PI * 2
     );
     ctx.fill();
 
     ctx.beginPath();
     ctx.ellipse(
-      island.rx * 0.35,
-      island.ry * 0.2,
-      island.rx * 0.25,
-      island.ry * 0.22,
-      0.4,
-      0,
-      Math.PI * 2
+      island.rx * 0.35, island.ry * 0.2,
+      island.rx * 0.25, island.ry * 0.22,
+      0.4, 0, Math.PI * 2
     );
     ctx.fill();
 
     ctx.restore();
   }
 
+  function drawHouse(house) {
+    if (!house.alive) return;
+
+    const s = house.size;
+
+    ctx.save();
+    ctx.translate(house.x, house.y);
+
+    // House body.
+    ctx.fillStyle = house.color;
+    ctx.strokeStyle = '#253442';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(-s * 0.65, -s * 0.2, s * 1.3, s);
+    ctx.strokeRect(-s * 0.65, -s * 0.2, s * 1.3, s);
+
+    // Roof.
+    ctx.fillStyle = '#a94e42';
+    ctx.beginPath();
+    ctx.moveTo(-s, -s * 0.2);
+    ctx.lineTo(0, -s);
+    ctx.lineTo(s, -s * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Door.
+    ctx.fillStyle = '#563c30';
+    ctx.fillRect(-s * 0.16, s * 0.25, s * 0.32, s * 0.55);
+
+    ctx.restore();
+  }
+
   function drawStorm() {
+    const colors = [
+      '#a9d8e8',
+      '#f5d84e',
+      '#f59e32',
+      '#ff7777',
+      '#e53935',
+      '#8b101c'
+    ];
+
     ctx.save();
     ctx.translate(storm.x, storm.y);
     ctx.rotate(stormAngle);
 
-    ctx.shadowColor = '#55dbea';
-    ctx.shadowBlur = 16;
+    ctx.shadowColor = colors[category];
+    ctx.shadowBlur = 12 + category * 3;
     ctx.fillStyle = '#092033';
-    ctx.strokeStyle = '#f4fdff';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = colors[category];
+    ctx.lineWidth = 3 + category * 0.4;
 
     ctx.beginPath();
     ctx.arc(0, 0, storm.r, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-
     ctx.shadowBlur = 0;
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       ctx.beginPath();
       ctx.strokeStyle = i % 2 ? '#55dbea' : '#ffffff';
-      ctx.lineWidth = 5 - i;
+      ctx.lineWidth = 5 - i * 0.7;
       ctx.arc(
-        0,
-        0,
-        storm.r * (0.35 + i * 0.2),
+        0, 0,
+        storm.r * (0.3 + i * 0.17),
         i * 1.7,
         i * 1.7 + Math.PI * 1.35
       );
@@ -262,6 +406,14 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('YOU', storm.x, storm.y);
+
+    ctx.font = 'bold 13px system-ui';
+    ctx.fillStyle = colors[category];
+    ctx.fillText(
+      category === 0 ? 'TD' : 'CAT ' + category,
+      storm.x,
+      storm.y - storm.r - 9
+    );
     ctx.restore();
   }
 
@@ -273,7 +425,6 @@
     ctx.fillStyle = ocean;
     ctx.fillRect(0, 0, W, H);
 
-    // Ocean grid.
     ctx.strokeStyle = '#ffffff0d';
     ctx.lineWidth = 1;
 
@@ -292,29 +443,59 @@
     }
 
     islands.forEach(drawIsland);
+    houses.forEach(drawHouse);
     clouds.forEach(drawCloud);
     drawStorm();
 
-    if (!running || paused) {
-      ctx.fillStyle = '#04111dd9';
+    // Power bar.
+    const barW = 180;
+    ctx.fillStyle = '#172c3d';
+    ctx.fillRect(16, 16, barW, 16);
+    ctx.fillStyle = power < 25 ? '#ff5252' :
+      power < 55 ? '#ffc857' : '#44d18a';
+    ctx.fillRect(16, 16, barW * power / 100, 16);
+    ctx.strokeStyle = '#ffffffaa';
+    ctx.strokeRect(16, 16, barW, 16);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('POWER ' + Math.ceil(power) + '%', 20, 46);
+
+    ctx.textAlign = 'right';
+    ctx.fillText(categoryNames[category], W - 16, 28);
+    ctx.fillText('Next upgrade: ' +
+      (category < 5 ? (category * 150 - score) + ' pts' : 'MAX'),
+      W - 16, 47);
+
+    if (!running || paused || gameOver) {
+      ctx.fillStyle = '#04111de8';
       ctx.fillRect(0, 0, W, H);
 
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffffff';
       ctx.font = '800 38px system-ui';
-      ctx.fillText(
-        paused ? 'PAUSED' : 'HURRICANE RUN',
-        W / 2,
-        H / 2 - 12
-      );
+
+      const heading = gameOver ? 'HURRICANE DEPLETED' :
+        paused ? 'PAUSED' : 'HURRICANE RUN';
+
+      ctx.fillText(heading, W / 2, H / 2 - 25);
 
       ctx.font = '18px system-ui';
       ctx.fillStyle = '#b9d6e8';
-      ctx.fillText(
-        paused ? 'Press Resume to continue' : 'Collect clouds. Avoid land.',
-        W / 2,
-        H / 2 + 27
-      );
+
+      const sub = gameOver ?
+        'Final score: ' + score + ' — press Restart' :
+        paused ? 'Press Resume to continue' :
+        'Collect clouds. Destroy houses. Avoid land.';
+
+      ctx.fillText(sub, W / 2, H / 2 + 15);
+
+      if (!gameOver && !paused) {
+        ctx.font = '15px system-ui';
+        ctx.fillText('Every 150 points = a stronger category!',
+          W / 2, H / 2 + 48);
+      }
     }
   }
 
@@ -329,16 +510,21 @@
     if (!paused) update(dt);
     draw();
 
-    animationId = requestAnimationFrame(frame);
+    if (running) animationId = requestAnimationFrame(frame);
   }
 
   function start() {
+    if (gameOver) {
+      message.textContent = 'Press Restart to begin a new hurricane.';
+      return;
+    }
+
     if (running) {
       if (paused) {
         paused = false;
         lastTime = 0;
         pauseBtn.textContent = 'Pause';
-        message.textContent = 'Storm active! Collect clouds and avoid land.';
+        message.textContent = 'Storm active! Collect clouds and houses.';
       }
       return;
     }
@@ -348,7 +534,8 @@
     lastTime = 0;
     startBtn.textContent = 'Running…';
     pauseBtn.textContent = 'Pause';
-    message.textContent = 'Storm active! Clouds +10. Land hits −5.';
+    message.textContent =
+      'Storm active! Clouds +10, houses +25. Land drains power.';
 
     animationId = requestAnimationFrame(frame);
   }
@@ -358,22 +545,18 @@
 
     paused = !paused;
     pauseBtn.textContent = paused ? 'Resume' : 'Pause';
-    message.textContent = paused
-      ? 'Game paused. Press Resume when you are ready.'
-      : 'Storm active! Collect clouds and avoid land.';
+    message.textContent = paused ?
+      'Game paused. Press Resume when ready.' :
+      'Storm active! Keep collecting points.';
     draw();
   }
 
-  // Keyboard controls.
   document.addEventListener('keydown', event => {
-    const key = event.key.length === 1
-      ? event.key.toLowerCase()
-      : event.key;
+    const key = event.key.length === 1 ?
+      event.key.toLowerCase() : event.key;
 
-    if (
-      ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ']
-        .includes(event.key)
-    ) {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp',
+      'ArrowDown', ' '].includes(event.key)) {
       event.preventDefault();
     }
 
@@ -386,13 +569,11 @@
   });
 
   document.addEventListener('keyup', event => {
-    const key = event.key.length === 1
-      ? event.key.toLowerCase()
-      : event.key;
+    const key = event.key.length === 1 ?
+      event.key.toLowerCase() : event.key;
     keys.delete(key);
   });
 
-  // Mobile touch controls.
   document.querySelectorAll('[data-dir]').forEach(button => {
     const key = {
       up: 'ArrowUp',
@@ -424,23 +605,3 @@
   reset();
 })();
 
-window.addEventListener("load", function () {
-  const canvas = document.getElementById("game-canvas");
-  if (!canvas) {
-    alert("Game error: canvas not found!");
-    return;
-  }
-
-  const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#071b35";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.fillStyle = "white";
-  ctx.font = "28px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("HURRICANE RUN", canvas.width / 2, 100);
-  ctx.font = "48px Arial";
-  ctx.fillText("🌀", canvas.width / 2, 250);
-  ctx.font = "20px Arial";
-  ctx.fillText("Canvas is working!", canvas.width / 2, 320);
-});
