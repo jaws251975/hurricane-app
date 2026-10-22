@@ -1,0 +1,81 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071525">
+  <title>StormWatch — Image Library</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="image-library-page">
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">◉</span>
+      STORM<span>WATCH</span>
+    </a>
+    <nav class="site-nav" aria-label="Main navigation">
+      <a class="site-nav-link" href="index.html">Live Tracker</a>
+      <a class="site-nav-link site-nav-active" href="images.html">Image Library</a>
+    </nav>
+    <div class="live-label">IMAGE ARCHIVE</div>
+  </header>
+
+  <main class="layout">
+    <section class="intro">
+      <p class="eyebrow">STORMWATCH ARCHIVE</p>
+      <h1>Hurricane Image Library</h1>
+      <p class="subtitle">
+        Search hurricane photographs by storm name, year, or location.
+      </p>
+    </section>
+
+    <section class="panel image-search-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">SEARCH THE ARCHIVE</p>
+          <h2>Find a hurricane</h2>
+        </div>
+      </div>
+
+      <form id="image-search-form" class="image-search-form">
+        <label for="image-search-input">Hurricane name</label>
+        <div class="image-search-controls">
+          <input id="image-search-input" type="search"
+            placeholder="Try Hurricane Katrina" required>
+          <button class="refresh-button" type="submit">
+            Search images
+          </button>
+        </div>
+        <p class="image-search-hint">
+          Examples: Katrina, Andrew, Camille, Ian 2022.
+        </p>
+      </form>
+
+      <p id="image-search-status" class="image-search-status" aria-live="polite">
+        Search for a storm to see available images.
+      </p>
+    </section>
+
+    <section class="image-results-section">
+      <div class="image-results-heading">
+        <div>
+          <p class="eyebrow">PHOTO RESULTS</p>
+          <h2 id="image-results-title">Image Library</h2>
+        </div>
+        <span id="image-results-count" class="image-results-count"></span>
+      </div>
+      <div id="image-results" class="image-results-grid"></div>
+    </section>
+
+    <p class="image-library-source">
+      Images are retrieved from
+      <a href="https://commons.wikimedia.org/"
+         target="_blank" rel="noopener noreferrer">Wikimedia Commons</a>.
+      Open an image's source page to check its creator and license.
+    </p>
+  </main>
+
+  <script src="images.js"></script>
+</body>
+</html>
