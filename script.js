@@ -2340,3 +2340,26 @@ function markerIcon(observation) {
     showScreen('live');
 })();
 
+
+/* Fix stray Leaflet tiles on the live map */
+(function fixLiveMapRendering() {
+    function refreshLiveMapSize() {
+        if (typeof liveMap !== "undefined" && liveMap) {
+            liveMap.invalidateSize({ animate: false, pan: false });
+        }
+    }
+
+    window.addEventListener("load", () => {
+        setTimeout(refreshLiveMapSize, 500);
+        setTimeout(refreshLiveMapSize, 1500);
+    });
+
+    window.addEventListener("resize", refreshLiveMapSize);
+
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+            setTimeout(refreshLiveMapSize, 300);
+        }
+    });
+})();
+
