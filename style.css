@@ -1806,3 +1806,29 @@ footer {
   }
 }
 
+
+/* Historical map rendering fix */
+.history-panel .history-map-frame {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    min-height: 480px;
+    overflow: hidden;
+}
+
+#history-map {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    height: 480px !important;
+    min-height: 480px !important;
+    background: #102438;
+    z-index: 1;
+}
+
+#history-map .leaflet-pane,
+#history-map .leaflet-tile,
+#history-map .leaflet-tile-container {
+    visibility: visible !important;
+}
+
