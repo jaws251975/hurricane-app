@@ -1832,3 +1832,23 @@ footer {
     visibility: visible !important;
 }
 
+
+/* Live Leaflet tile alignment correction */
+#map {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+#map .leaflet-pane,
+#map .leaflet-tile,
+#map .leaflet-tile-container,
+#map .leaflet-layer {
+    transform-origin: 0 0;
+}
+
+#map .leaflet-tile {
+    max-width: none !important;
+    max-height: none !important;
+}
+
