@@ -2364,40 +2364,75 @@ function markerIcon(observation) {
 })();
 
 
-/* StormWatch: Satellite imagery toggle */
+
+/* StormWatch: Satellite imagery toggle — fixed */
 (function addSatelliteToggle() {
   const button = document.getElementById("satellite-toggle");
 
-  if (!button || typeof liveMap === "undefined") {
-    console.warn("Satellite toggle: button or liveMap not found.");
-    return;
-  }
+  if (!button || button.dataset.satelliteReady === "true") return;
+  button.dataset.satelliteReady = "true";
 
-  // Esri World Imagery satellite tiles
-  const satelliteLayer = L.tileLayer(
-    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    {
-      attribution:
-        'Imagery © <a href="https://www.esri.com/">Esri</a> and its contributors',
-      maxZoom: 19
-    }
-  );
-
+  let satelliteLayer = null;
+  let streetLayers = [];
   let satelliteEnabled = false;
 
   button.addEventListener("click", function () {
-    if (satelliteEnabled) {
-      liveMap.removeLayer(satelliteLayer);
-      button.textContent = "🛰️ Show satellite imagery";
-      button.setAttribute("aria-pressed", "false");
-    } else {
-      satelliteLayer.addTo(liveMap);
-      satelliteLayer.bringToBack();
-      button.textContent = "🗺️ Show street map";
-      button.setAttribute("aria-pressed", "true");
+    if (typeof liveMap === "undefined" || !liveMap) {
+      console.warn("StormWatch map is not ready yet.");
+      return;
     }
 
-    satelliteEnabled = !satelliteEnabled;
+    if (typeof L === "undefined") {
+      console.error("Leaflet has not loaded.");
+      return;
+    }
+
+    if (!satelliteLayer) {
+      satelliteLayer = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          maxZoom: 19,
+          attribution:
+            'Imagery © <a href="https://www.esri.com/">Esri</a>'
+        }
+      );
+    }
+
+    if (!satelliteEnabled) {
+      // Temporarily hide the existing OpenStreetMap base tiles.
+      streetLayers = [];
+
+      liveMap.eachLayer(function (layer) {
+        if (
+          layer instanceof L.TileLayer &&
+          layer !== satelliteLayer &&
+          String(layer._url || "").includes("openstreetmap.org")
+        ) {
+          streetLayers.push(layer);
+          liveMap.removeLayer(layer);
+        }
+      });
+
+      satelliteLayer.addTo(liveMap);
+
+      button.textContent = "🗺️ Show street map";
+      button.setAttribute("aria-pressed", "true");
+      satelliteEnabled = true;
+    } else {
+      // Restore the original street map.
+      liveMap.removeLayer(satelliteLayer);
+
+      streetLayers.forEach(function (layer) {
+        if (!liveMap.hasLayer(layer)) {
+          layer.addTo(liveMap);
+        }
+      });
+
+      button.textContent = "🛰️ Show satellite imagery";
+      button.setAttribute("aria-pressed", "false");
+      satelliteEnabled = false;
+    }
+
+    liveMap.invalidateSize();
   });
 })();
-
