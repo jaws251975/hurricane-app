@@ -1432,7 +1432,10 @@ setInterval(loadSevereWeather, 5 * 60 * 1000);
 
             report('Initializing historical map…');
 
-
+const historyBounds = L.latLngBounds(
+    [-60, -180],
+    [80, 180]
+);
 const historyMap = L.map(mapElement, {
     zoomControl: true,
     minZoom: 2,
