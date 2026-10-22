@@ -10,104 +10,85 @@ const resultsTitle = document.getElementById('image-results-title');
 const resultsCount = document.getElementById('image-results-count');
 
 const ARCHIVES = [
-  {
-    basin: 'Atlantic',
-    url: './data/hurdat2-1851-2025-092326.txt'
-  },
-  {
-    basin: 'Eastern/Central Pacific',
-    url: './data/hurdat2-nepac-1949-2025-092926.txt'
-  }
+  './data/hurdat2-1851-2025-092326.txt',
+  './data/hurdat2-nepac-1949-2025-092926.txt'
 ];
 
 function escapeHTML(value) {
-  return String(value ?? '').replace(/[&<>"']/g, char => ({
+  return String(value ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
     "'": '&#39;'
-  })[char]);
+  })[c]);
 }
 
-function metadata(info, key) {
+function getMeta(info, key) {
   const raw = info?.extmetadata?.[key]?.value || '';
-  const element = document.createElement('div');
-  element.innerHTML = raw;
-  return element.textContent.trim();
+  const el = document.createElement('div');
+  el.innerHTML = raw;
+  return el.textContent.trim();
 }
 
-function plainText(page) {
+function getDescription(page) {
   const info = page.imageinfo?.[0] || {};
-
   return [
     page.title || '',
-    metadata(info, 'ImageDescription'),
-    metadata(info, 'ObjectName'),
-    metadata(info, 'Categories')
+    getMeta(info, 'ImageDescription'),
+    getMeta(info, 'ObjectName'),
+    getMeta(info, 'Categories')
   ].join(' ').toLowerCase();
 }
 
-/* Read the same HURDAT2 archives used by the history tracker. */
-async function loadHistoricalStorms() {
-  const allStorms = [];
+async function verifyStorm(name, year) {
+  for (const url of ARCHIVES) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
 
-  for (const archive of ARCHIVES) {
-    const response = await fetch(archive.url);
+      const content = await response.text();
 
-    if (!response.ok) {
-      throw new Error(
-        'Could not load the ' + archive.basin +
-        ' historical storm archive.'
-      );
-    }
+      for (const line of content.split(/\r?\n/)) {
+        const fields = line.split(',').map(v => v.trim());
 
-    const text = await response.text();
-
-    if (!/[A-Z]{2}\d{6},/.test(text)) {
-      throw new Error(
-        'The ' + archive.basin + ' archive could not be verified.'
-      );
-    }
-
-    for (const line of text.split(/\r?\n/)) {
-      const fields = line.split(',').map(value => value.trim());
-
-      if (
-        fields.length >= 3 &&
-        /^[A-Z]{2}\d{6}$/.test(fields[0]) &&
-        /^\d+$/.test(fields[2])
-      ) {
-        allStorms.push({
-          id: fields[0],
-          name: fields[1].toUpperCase(),
-          year: fields[0].slice(4, 8),
-          basin: archive.basin
-        });
+        if (
+          fields.length >= 3 &&
+          /^[A-Z]{2}\d{6}$/.test(fields[0]) &&
+          fields[1].toUpperCase() === name &&
+          fields[0].slice(4, 8) === year
+        ) {
+          return {
+            name,
+            year,
+            basin: url.includes('nepac') ? 'Pacific' : 'Atlantic'
+          };
+        }
       }
+    } catch (error) {
+      console.warn('Could not read archive:', url, error);
     }
   }
 
-  return allStorms;
+  return null;
 }
 
 function makeCard(page, storm) {
   const info = page.imageinfo?.[0] || {};
-  const title = (page.title || 'Hurricane image').replace(/^File:/, '');
   const imageURL = info.thumburl || info.url;
   const sourceURL = info.descriptionurl;
 
   if (!imageURL || !sourceURL) return '';
 
+  const title = (page.title || 'Storm image').replace(/^File:/, '');
   const creator =
-    metadata(info, 'Artist') ||
-    metadata(info, 'Credit') ||
+    getMeta(info, 'Artist') ||
+    getMeta(info, 'Credit') ||
     'Creator not listed';
-
   const license =
-    metadata(info, 'LicenseShortName') ||
-    metadata(info, 'UsageTerms') ||
-    'Check the source page';
+    getMeta(info, 'LicenseShortName') ||
+    getMeta(info, 'UsageTerms') ||
+    'Check source page';
 
   return `
     <article class="image-result-card">
@@ -115,20 +96,16 @@ function makeCard(page, storm) {
          href="${escapeHTML(sourceURL)}"
          target="_blank" rel="noopener noreferrer">
         <img src="${escapeHTML(imageURL)}"
-             alt="${escapeHTML(storm.name + ' ' + storm.year + ': ' + title)}"
+             alt="${escapeHTML(storm.name + ' ' + storm.year + ' - ' + title)}"
              loading="lazy">
       </a>
-
       <div class="image-result-info">
         <p class="image-card-tag">
           ${escapeHTML(storm.name)} · ${escapeHTML(storm.year)}
         </p>
-
         <h3>${escapeHTML(title)}</h3>
-
         <p><span>CREATOR</span> ${escapeHTML(creator)}</p>
         <p><span>LICENSE</span> ${escapeHTML(license)}</p>
-
         <a class="image-source-link"
            href="${escapeHTML(sourceURL)}"
            target="_blank" rel="noopener noreferrer">
@@ -143,128 +120,126 @@ async function searchImages() {
   const name = input.value.trim()
     .replace(/^hurricane\s+/i, '')
     .toUpperCase();
-
   const year = yearInput.value.trim();
 
   if (!name || !/^\d{4}$/.test(year)) {
-    statusLine.textContent =
-      'Enter a hurricane name and a four-digit year.';
+    statusLine.textContent = 'Enter a storm name and four-digit year.';
     return;
   }
 
-  statusLine.textContent = 'Checking historical storm records…';
   resultsGrid.replaceChildren();
   resultsCount.textContent = '';
   resultsTitle.textContent = 'Searching…';
+  statusLine.textContent = 'Checking historical storm records…';
 
   try {
-    const storms = await loadHistoricalStorms();
+    const storm = await verifyStorm(name, year);
 
-    const matches = storms.filter(storm =>
-      storm.name === name && storm.year === year
-    );
-
-    if (!matches.length) {
+    if (!storm) {
       resultsTitle.textContent = 'Storm not found';
       statusLine.textContent =
-        'No exact name-and-year match was found in the available ' +
-        'historical archives. Check the spelling and year.';
+        'No matching storm was found in the available historical archives. Check the name and year, or check that the data files are available.';
       return;
     }
 
-    const storm = matches[0];
-
-    resultsTitle.textContent =
-      storm.name + ' ' + storm.year + ' — Image results';
-
+    resultsTitle.textContent = `${storm.name} ${storm.year} — Photos`;
     statusLine.textContent =
-      'Verified in the ' + storm.basin +
-      ' historical archive. Searching for matching storm imagery…';
+      `Storm record verified in the ${storm.basin} archive. Searching Wikimedia Commons…`;
 
-    const params = new URLSearchParams({
-      action: 'query',
-      generator: 'search',
-      gsrsearch:
-        '"' + storm.name + '" ' + storm.year + ' hurricane satellite',
-      gsrnamespace: '6',
-      gsrlimit: '40',
-      prop: 'imageinfo',
-      iiprop: 'url|extmetadata',
-      iiextmetadatafilter:
-        'ImageDescription|ObjectName|Artist|Credit|LicenseShortName|UsageTerms',
-      iiurlwidth: '900',
-      format: 'json',
-      origin: '*'
-    });
+    const queries = [
+      `${storm.name} hurricane ${storm.year}`,
+      `${storm.name} ${storm.year} satellite storm`
+    ];
 
-    const response = await fetch(
-      'https://commons.wikimedia.org/w/api.php?' + params
-    );
+    const found = new Map();
 
-    if (!response.ok) {
-      throw new Error('The image archive request failed.');
+    for (const query of queries) {
+      const params = new URLSearchParams({
+        action: 'query',
+        generator: 'search',
+        gsrsearch: query,
+        gsrnamespace: '6',
+        gsrlimit: '30',
+        prop: 'imageinfo',
+        iiprop: 'url|extmetadata',
+        iiurlwidth: '900',
+        format: 'json',
+        origin: '*'
+      });
+
+      const response = await fetch(
+        'https://commons.wikimedia.org/w/api.php?' + params
+      );
+
+      if (!response.ok) {
+        throw new Error('Wikimedia Commons returned an error.');
+      }
+
+      const data = await response.json();
+      const pages = Object.values(data.query?.pages || {});
+
+      for (const page of pages) {
+        if (page.imageinfo?.[0] && !found.has(page.pageid)) {
+          found.set(page.pageid, page);
+        }
+      }
+
+      if (found.size >= 2) break;
     }
 
-    const data = await response.json();
+    const pages = [...found.values()];
 
-    const pages = Object.values(data.query?.pages || {});
-
-    /* Require the storm name AND year in the available metadata.
-       Exclude likely aftermath/damage photographs. */
-    const excluded = /\b(damage|damaged|aftermath|cleanup|recovery|\
-rescue|evacuation|flooded homes|flood damage|deaths|victims)\b/i;
-
-    const verified = pages.filter(page => {
+    // Prefer matching storm name/year and storm-related imagery.
+    const relevant = pages.filter(page => {
       const info = page.imageinfo?.[0];
       if (!info || !(info.thumburl || info.url)) return false;
 
-      const text = plainText(page);
+      const description = getDescription(page);
+      const hasName = description.includes(name.toLowerCase());
+      const hasYear = description.includes(year);
+      const stormRelated =
+        /\b(hurricane|cyclone|storm|satellite|weather|tropical|goes|noaa|cloud)\b/i
+          .test(description);
 
-      const hasName = text.includes(storm.name.toLowerCase());
-      const hasYear = text.includes(storm.year);
-
-      const stormImagery =
-        /\b(satellite|hurricane|tropical cyclone|storm cloud|\
-infrared|weather satellite|storm system|eye of the storm|goes)\b/i
-          .test(text);
-
-      return hasName && hasYear && stormImagery && !excluded.test(text);
+      return hasName && hasYear && stormRelated;
     });
 
-    /* Only show one or two results. */
-    const selected = verified.slice(0, 2);
+    // If metadata is sparse, show Commons results for the exact search
+    // instead of leaving the page blank. Source links remain available.
+    const selected = (relevant.length ? relevant : pages).slice(0, 2);
     const cards = selected.map(page => makeCard(page, storm)).join('');
 
     if (!cards) {
-      resultsTitle.textContent =
-        storm.name + ' ' + storm.year + ' — No verified images';
-
+      resultsTitle.textContent = 'No photos returned';
       statusLine.textContent =
-        'The archive did not return images whose available descriptions ' +
-        'confirmed both this storm and year. Try again later or check ' +
-        'the historical record. No unverified photos were shown.';
-
+        'The image archive returned no usable photos for this search. Try again or try a different storm name.';
       return;
     }
 
     resultsGrid.innerHTML = cards;
     resultsCount.textContent =
-      selected.length + (selected.length === 1 ? ' image' : ' images');
+      `${selected.length} ${selected.length === 1 ? 'image' : 'images'}`;
 
-    statusLine.textContent =
-      'Historical record verified. Showing up to two relevant images. ' +
-      'Open each source to confirm its details and license.';
+    statusLine.textContent = relevant.length
+      ? 'Showing matching storm images. Open a source link to review its description and license.'
+      : 'No exact metadata matches were found, so these are the closest image-search results. Check each source page to confirm the storm and year.';
 
   } catch (error) {
-    console.error(error);
-    resultsTitle.textContent = 'Image search unavailable';
+    console.error('Storm image search failed:', error);
+    resultsTitle.textContent = 'Search unavailable';
     statusLine.textContent =
-      'Could not load the historical records or image archive. ' +
-      'Check your connection and try again.';
+      'A historical data file or image service could not be reached. Check your connection and try again.';
   }
 }
 
-form.addEventListener('submit', event => {
-  event.preventDefault();
-  searchImages();
-});
+if (form && input && yearInput && statusLine &&
+    resultsGrid && resultsTitle && resultsCount) {
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    searchImages();
+  });
+} else {
+  console.error(
+    'Image search could not start: a required HTML element is missing. Check images.html IDs.'
+  );
+}
