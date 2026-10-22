@@ -5,10 +5,85 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#071525">
-  <title>StormWatch — Image Library</title>
+  <title>StormWatch — Hurricane Run</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .game-wrap { max-width: 1000px; margin: 0 auto; }
+    .game-hud {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 20px 0;
+    }
+    .game-stat {
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0d1c2d;
+    }
+    .game-stat span {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font: 10px 'DM Mono', monospace;
+      letter-spacing: .1em;
+    }
+    .game-stat strong { font-size: 23px; }
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 3 / 2;
+      border: 1px solid #29445c;
+      border-radius: 14px;
+      background: #092b45;
+      touch-action: none;
+    }
+    .game-actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    .game-actions button, .game-controls button {
+      min-height: 48px;
+      border: 1px solid #2a5268;
+      border-radius: 9px;
+      background: #102a3d;
+      color: var(--text);
+      font-weight: 800;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .game-actions button { padding: 12px 18px; font-size: 12px; }
+    .game-controls {
+      display: grid;
+      grid-template-columns: repeat(3, 64px);
+      justify-content: center;
+      gap: 8px;
+      margin: 16px auto;
+    }
+    .game-controls button { font-size: 20px; }
+    .game-controls .empty { visibility: hidden; }
+    .game-help {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.7;
+      text-align: center;
+    }
+    @media (min-width: 700px) {
+      .game-controls { display: none; }
+    }
+    @media (max-width: 500px) {
+      .game-hud { gap: 7px; }
+      .game-stat { padding: 10px; }
+      .game-stat strong { font-size: 19px; }
+      .game-stat span { font-size: 9px; }
+    }
+  </style>
 </head>
-<body class="image-library-page">
+<body>
   <header class="topbar">
     <a class="brand" href="index.html">
       <span class="brand-mark">◉</span>
@@ -16,85 +91,57 @@
     </a>
     <nav class="site-nav" aria-label="Main navigation">
       <a class="site-nav-link" href="index.html">Live Tracker</a>
-      <a class="site-nav-link site-nav-active" href="images.html">Image Library</a>
+      <a class="site-nav-link site-nav-active" href="images.html">Hurricane Run</a>
     </nav>
-    <div class="live-label">IMAGE ARCHIVE</div>
+    <div class="live-label">MINI-GAME</div>
   </header>
 
-  <main class="layout">
+  <main class="layout game-wrap">
     <section class="intro">
-      <p class="eyebrow">STORMWATCH ARCHIVE</p>
-      <h1>Hurricane Image Library</h1>
+      <p class="eyebrow">STORMWATCH ARCADE</p>
+      <h1>Hurricane Run</h1>
       <p class="subtitle">
-        Search hurricane photographs by storm name, year, or location.
+        You are the hurricane! Collect clouds to build your score,
+        but steer clear of land. How many points can you get?
       </p>
     </section>
 
-    <section class="panel image-search-panel">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">SEARCH THE ARCHIVE</p>
-          <h2>Find a hurricane</h2>
-        </div>
+    <section class="game-hud" aria-label="Game statistics">
+      <div class="game-stat">
+        <span>SCORE</span>
+        <strong id="score">0</strong>
       </div>
-
-
-
-    <input
-      id="image-search-year"
-      type="number"
-      min="1851"
-      max="2025"
-      value="2005"
-      placeholder="Year"
-      aria-label="Hurricane year"
-      required
-    >
-
-    <button class="refresh-button" type="submit">
-      Find storm photos
-    </button>
-  </div>
-
-  <p class="image-search-hint">
-    Enter the exact storm name and year to distinguish storms
-    with the same name.
-  </p>
-</form>
-        <label for="image-search-input">Hurricane name</label>
-        <div class="image-search-controls">
-          <input id="image-search-input" type="search"
-            placeholder="Try Hurricane Katrina" required>
-          <button class="refresh-button" type="submit">
-            Search images
-          </button>
-        </div>
-        <p class="image-search-hint">
-          Examples: Katrina, Andrew, Camille, Ian 2022.
-        </p>
-      </form>
-
-      <p id="image-search-status" class="image-search-status" aria-live="polite">
-        Search for a storm to see available images.
-      </p>
+      <div class="game-stat">
+        <span>CLOUDS COLLECTED</span>
+        <strong id="cloud-count">0</strong>
+      </div>
+      <div class="game-stat">
+        <span>LAND HITS</span>
+        <strong id="land-hits">0</strong>
+      </div>
     </section>
 
-    <section class="image-results-section">
-      <div class="image-results-heading">
-        <div>
-          <p class="eyebrow">PHOTO RESULTS</p>
-          <h2 id="image-results-title">Image Library</h2>
-        </div>
-        <span id="image-results-count" class="image-results-count"></span>
-      </div>
-      <div id="image-results" class="image-results-grid"></div>
-    </section>
+    <canvas id="game-canvas" width="900" height="600"
+      aria-label="Hurricane Run game area"></canvas>
 
-    <p class="image-library-source">
-      Images are retrieved from
-      <a href="https://commons.wikimedia.org/"
-         target="_blank" rel="noopener noreferrer">Wikimedia Commons</a>.
-      Open an image's source page to check its creator and license.
+    <div class="game-actions">
+      <button id="start-button" type="button">Start game</button>
+      <button id="pause-button" type="button">Pause</button>
+      <button id="restart-button" type="button">Restart</button>
+    </div>
+
+    <div class="game-controls" aria-label="Touch movement controls">
+      <span class="empty"></span>
+      <button type="button" data-dir="up" aria-label="Move up">▲</button>
+      <span class="empty"></span>
+      <button type="button" data-dir="left" aria-label="Move left">◀</button>
+      <button type="button" data-dir="down" aria-label="Move down">▼</button>
+      <button type="button" data-dir="right" aria-label="Move right">▶</button>
+    </div>
+
+    <p id="game-message" class="game-help" aria-live="polite">
+      Press Start game. Use arrow keys or WASD, or the touch controls
+      on mobile. Clouds = +10 points. Land hits = −5 points.
     </p>
   </main>
 
