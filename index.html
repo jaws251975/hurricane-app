@@ -216,21 +216,37 @@
   </p>
 
   <div class="history-controls">
-    <label for="history-storm">Historical storm</label>
-    <select id="history-storm">
-      <option value="">Historical storm search will be available in Stage 2</option>
-    </select>
+    <div class="history-map-frame">
+    <div
+      id="history-map"
+      role="region"
+      aria-label="Historical hurricane replay map"
+    ></div>
 
-    <p id="history-status" class="history-status" aria-live="polite">
-      Historical archive not connected yet.
-    </p>
+    <div class="history-playback-bubble">
+      <div class="history-timeline">
+        <label for="history-slider">STORM TIMELINE</label>
+        <input
+          id="history-slider"
+          type="range"
+          min="0"
+          max="100"
+          value="0"
+          step="1"
+          disabled
+        >
+        <div class="history-timeline-ends">
+          <span id="history-start">Beginning</span>
+          <span id="history-end">End</span>
+        </div>
+      </div>
+
+      <div class="history-buttons">
+        <button id="history-play" type="button" disabled>▶ Play</button>
+        <button id="history-reset" type="button" disabled>↺ Restart</button>
+      </div>
+    </div>
   </div>
-
-  <div
-    id="history-map"
-    role="region"
-    aria-label="Historical hurricane replay map"
-  ></div>
 
   <div class="history-details">
     <div>
