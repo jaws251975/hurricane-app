@@ -1889,3 +1889,39 @@ footer {
   outline: 2px solid #48baff;
   outline-offset: 3px;
 }
+
+
+
+/* Keep map controls together */
+.map-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.satellite-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 13px;
+  margin: 0;
+  border: 1px solid #31516b;
+  border-radius: 8px;
+  background: #101d2b;
+  color: #d9efff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.satellite-toggle:hover {
+  background: #19334a;
+  border-color: #48baff;
+}
+
+.satellite-toggle[aria-pressed="true"] {
+  background: #153c35;
+  border-color: #35d6a0;
+  color: #b8ffe5;
+}
