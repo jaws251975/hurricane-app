@@ -1433,11 +1433,16 @@ setInterval(loadSevereWeather, 5 * 60 * 1000);
 
             report('Initializing historical map…');
 
-            const historyMap = L.map(mapElement, {
-                zoomControl: true,
-                minZoom: 2,
-                maxZoom: 18
-            });
+
+const historyMap = L.map(mapElement, {
+    zoomControl: true,
+    minZoom: 2,
+    maxZoom: 18,
+    maxBounds: historyBounds,
+    maxBoundsViscosity: 1,
+    worldCopyJump: false
+});
+            
 
             window.stormWatchHistoryMap = historyMap;
 
