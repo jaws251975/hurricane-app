@@ -2363,3 +2363,41 @@ function markerIcon(observation) {
     });
 })();
 
+
+/* StormWatch: Satellite imagery toggle */
+(function addSatelliteToggle() {
+  const button = document.getElementById("satellite-toggle");
+
+  if (!button || typeof liveMap === "undefined") {
+    console.warn("Satellite toggle: button or liveMap not found.");
+    return;
+  }
+
+  // Esri World Imagery satellite tiles
+  const satelliteLayer = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      attribution:
+        'Imagery © <a href="https://www.esri.com/">Esri</a> and its contributors',
+      maxZoom: 19
+    }
+  );
+
+  let satelliteEnabled = false;
+
+  button.addEventListener("click", function () {
+    if (satelliteEnabled) {
+      liveMap.removeLayer(satelliteLayer);
+      button.textContent = "🛰️ Show satellite imagery";
+      button.setAttribute("aria-pressed", "false");
+    } else {
+      satelliteLayer.addTo(liveMap);
+      satelliteLayer.bringToBack();
+      button.textContent = "🗺️ Show street map";
+      button.setAttribute("aria-pressed", "true");
+    }
+
+    satelliteEnabled = !satelliteEnabled;
+  });
+})();
+
