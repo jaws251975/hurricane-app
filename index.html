@@ -199,8 +199,9 @@
   </p>
 </section>
 
+
 <!-- Historical Storm Lab -->
-<section class="panel history-panel">
+<section class="panel history-panel" style="display:none">
   <div class="panel-heading">
     <div>
       <p class="eyebrow">HISTORICAL WEATHER LAB</p>
@@ -210,31 +211,29 @@
   </div>
 
   <p class="history-info">
-    Select a past hurricane to replay its recorded life. The track will
-    reveal only the path traveled so far. Historical positions and wind
-    speeds depend on the available archive data.
+    Select a past hurricane to replay its recorded life.
+    The track reveals the path traveled so far.
   </p>
 
   <div class="history-controls">
-    <div class="history-map-frame">
-    <div
-      id="history-map"
-      role="region"
-      aria-label="Historical hurricane replay map"
-    ></div>
+    <label for="history-storm">Historical storm</label>
+    <select id="history-storm" disabled>
+      <option value="">Loading historical archive…</option>
+    </select>
+    <p id="history-status" class="history-status" aria-live="polite">
+      Loading historical storm archives…
+    </p>
+  </div>
+
+  <div class="history-map-frame">
+    <div id="history-map" role="region"
+         aria-label="Historical hurricane replay map"></div>
 
     <div class="history-playback-bubble">
       <div class="history-timeline">
         <label for="history-slider">STORM TIMELINE</label>
-        <input
-          id="history-slider"
-          type="range"
-          min="0"
-          max="100"
-          value="0"
-          step="1"
-          disabled
-        >
+        <input id="history-slider" type="range"
+               min="0" max="100" value="0" step="1" disabled>
         <div class="history-timeline-ends">
           <span id="history-start">Beginning</span>
           <span id="history-end">End</span>
@@ -249,51 +248,18 @@
   </div>
 
   <div class="history-details">
-    <div>
-      <span class="history-label">STORM</span>
-      <strong id="history-name">No storm selected</strong>
-    </div>
-    <div>
-      <span class="history-label">RECORDED DATE</span>
-      <strong id="history-date">—</strong>
-    </div>
-    <div>
-      <span class="history-label">WIND SPEED</span>
-      <strong id="history-wind">—</strong>
-    </div>
-    <div>
-      <span class="history-label">CATEGORY</span>
-      <strong id="history-category">—</strong>
-    </div>
-  </div>
-
-  <div class="history-timeline">
-    <label for="history-slider">Storm timeline</label>
-    <input
-      id="history-slider"
-      type="range"
-      min="0"
-      max="100"
-      value="0"
-      step="1"
-      disabled
-    >
-    <div class="history-timeline-ends">
-      <span id="history-start">Beginning</span>
-      <span id="history-end">End</span>
-    </div>
-  </div>
-
-  <div class="history-buttons">
-    <button id="history-play" type="button" disabled>▶ Play</button>
-    <button id="history-reset" type="button" disabled>↺ Restart</button>
+    <div><span class="history-label">STORM</span><strong id="history-name">No storm selected</strong></div>
+    <div><span class="history-label">RECORDED DATE</span><strong id="history-date">—</strong></div>
+    <div><span class="history-label">WIND SPEED</span><strong id="history-wind">—</strong></div>
+    <div><span class="history-label">CATEGORY</span><strong id="history-category">—</strong></div>
   </div>
 
   <p class="history-footnote">
-    Historical tracks are observations, not forecasts. Missing observations
-    may mean gaps in the displayed track.
+    Historical tracks show recorded observations, not forecasts.
   </p>
 </section>
+
+
 
 
     <!-- Safety notice -->
