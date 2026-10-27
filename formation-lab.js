@@ -9,28 +9,35 @@
   const $ = id => lab.querySelector("#" + id);
   const canvas = $("formation-canvas");
   const ctx = canvas.getContext("2d");
-
   const ocean = $("ocean-temp");
   const moisture = $("air-moisture");
   const shear = $("wind-shear");
   const speed = $("formation-speed");
   const timeline = $("formation-progress");
 
-  const stages = [
+  const scenes = [
     ["1 · Warm, humid air",
-     "The warm ocean evaporates. Warm, moist air rises, carrying water vapor into the atmosphere."],
-    ["2 · Rising air and clouds",
-     "As moist air rises, it cools. Water vapor condenses into cloud droplets, and thunderstorms begin to develop."],
-    ["3 · A low-pressure center",
-     "Rising air helps lower surface pressure. More air flows inward near the ocean, feeding the developing storm."],
+     "Warm ocean water evaporates. Moist air rises and carries water vapor into the atmosphere."],
+    ["2 · Growing thunderstorms",
+     "Rising air cools and water vapor condenses. Clouds grow as thunderstorms release heat."],
+    ["3 · Low pressure",
+     "Air flows inward near the ocean to replace rising air. This helps feed the developing system."],
     ["4 · Rotation organizes",
-     "Earth's rotation helps organize the circulation. Thunderstorms begin wrapping around the center."],
+     "Earth's rotation helps organize the circulation. Thunderstorms begin to curve around the center."],
     ["5 · Tropical depression",
-     "A closed circulation and organized thunderstorms develop. Warm water and low wind shear can help the system strengthen."],
+     "A closed circulation and organized thunderstorms develop. The storm may strengthen if conditions remain favorable."],
     ["6 · Tropical storm",
-     "The circulation becomes better organized. At sustained winds of 39 mph, the system is classified as a tropical storm."],
+     "At sustained winds of 39 mph, the system is classified as a tropical storm."],
     ["7 · Hurricane",
-     "At sustained winds of 74 mph, it qualifies as a hurricane. The eye, eyewall, and spiral rainbands can become more defined."]
+     "At sustained winds of 74 mph, the system qualifies as a hurricane. Its eye, eyewall, and rainbands may become organized."],
+    ["8 · Overhead view",
+     "Look down from above: spiral rainbands wrap around the eye. The eyewall surrounds the center, where air is descending. The whole storm rotates."],
+    ["9 · Landfall",
+     "Strong winds bend trees, rain reduces visibility, and lightning flashes around thunderstorms. Coastal flooding and storm surge can be extremely dangerous. The animation is illustrative, not a forecast."],
+    ["10 · Inside the eye",
+     "The eye can be calmer and clearer than the eyewall, and daylight may become visible. The surrounding storm can still be dangerous, and winds may return quickly."],
+    ["11 · After the storm",
+     "Flooding, fallen trees, damaged buildings, and power outages can remain after the storm passes. This scene is a fictional illustration of possible impacts."]
   ];
 
   let stage = 0;
@@ -39,7 +46,9 @@
   let elapsed = 0;
   let animation = 0;
   let width = 600;
-  let height = 390;
+  let height = 320;
+  let overhead = false;
+  let sceneStart = 0;
 
   function resize() {
     const box = canvas.getBoundingClientRect();
@@ -52,7 +61,7 @@
     draw();
   }
 
-  function roundedLabel(text, x, y, color = "#102b43") {
+  function label(text, x, y, color = "#102b43") {
     ctx.font = "bold 12px system-ui";
     const w = ctx.measureText(text).width + 16;
     ctx.fillStyle = "rgba(255,255,255,.92)";
@@ -65,95 +74,332 @@
     ctx.textAlign = "left";
   }
 
-  function arrow(x1, y1, x2, y2, color, phase, label) {
-    const pulse = Math.sin(phase) * 5;
+  function arrow(x1, y1, x2, y2, color, phase) {
+    const pulse = Math.sin(phase) * 4;
     const ex = x2 + pulse;
-    const ey = y2;
-
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
     ctx.lineWidth = 3;
-    ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(x1, y1);
-    ctx.lineTo(ex, ey);
+    ctx.lineTo(ex, y2);
     ctx.stroke();
 
-    const a = Math.atan2(ey - y1, ex - x1);
+    const a = Math.atan2(y2 - y1, ex - x1);
     ctx.beginPath();
-    ctx.moveTo(ex, ey);
-    ctx.lineTo(ex - 10 * Math.cos(a - 0.5), ey - 10 * Math.sin(a - 0.5));
-    ctx.lineTo(ex - 10 * Math.cos(a + 0.5), ey - 10 * Math.sin(a + 0.5));
+    ctx.moveTo(ex, y2);
+    ctx.lineTo(ex - 10 * Math.cos(a - .5), y2 - 10 * Math.sin(a - .5));
+    ctx.lineTo(ex - 10 * Math.cos(a + .5), y2 - 10 * Math.sin(a + .5));
     ctx.closePath();
     ctx.fill();
+  }
 
-    if (label) {
-      ctx.font = "11px system-ui";
-      ctx.fillStyle = color;
-      ctx.fillText(label, x1 + 5, (y1 + y2) / 2);
+  function cloud(x, base, top, w, growth, t) {
+    const y = base - (base - top) * growth;
+    const sway = Math.sin(t + x * .03) * 4;
+    ctx.fillStyle = "#9ca8b5";
+    ctx.beginPath();
+    ctx.moveTo(x - w * .4, base);
+    ctx.bezierCurveTo(x - w * .5, y + 35, x - w * .2, y - 10, x + sway, y);
+    ctx.bezierCurveTo(x + w * .4, y - 20, x + w * .4, y + 25, x + w * .3, base);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function stormSpiral(cx, cy, radius, t, color = "#f6fbff", arms = 7) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(t * .65);
+    ctx.lineCap = "round";
+
+    for (let i = 0; i < arms; i++) {
+      ctx.save();
+      ctx.rotate(i * Math.PI * 2 / arms);
+      ctx.beginPath();
+      ctx.moveTo(radius * .12, 0);
+      ctx.bezierCurveTo(
+        radius * .35, -radius * .45,
+        radius * .75, -radius * .2,
+        radius, -radius * .7
+      );
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(4, radius * .09);
+      ctx.stroke();
+      ctx.restore();
     }
+
+    // Clearly visible eye.
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * .12, 0, Math.PI * 2);
+    ctx.fillStyle = "#153954";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+    ctx.restore();
   }
 
-  function cloudTower(x, baseY, topY, cloudWidth, growth, phase) {
-    const top = baseY - (baseY - topY) * growth;
-    const sway = Math.sin(phase + x * 0.03) * 3;
+  function drawOverhead() {
+    const t = elapsed / 1000;
+    const cx = width / 2;
+    const cy = height / 2;
+    const radius = Math.min(width * .38, height * .38) *
+      Math.min(1.2, .48 + Math.max(0, stage - 6) * .12);
 
-    ctx.fillStyle = "#9da8b5";
-    ctx.strokeStyle = "#8796a5";
+    // Ocean.
+    ctx.fillStyle = "#07558b";
+    ctx.fillRect(0, 0, width, height);
+
+    // Ocean texture.
+    ctx.strokeStyle = "rgba(120,210,255,.18)";
     ctx.lineWidth = 1;
+    for (let y = 12; y < height; y += 24) {
+      ctx.beginPath();
+      for (let x = 0; x <= width; x += 8) {
+        const yy = y + Math.sin(x * .04 + t + y) * 2;
+        if (x === 0) ctx.moveTo(x, yy);
+        else ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+    }
+
+    // Whole storm: rotating cloud bands and a growing eyewall.
+    const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, radius * 1.5);
+    glow.addColorStop(0, "rgba(255,255,255,.18)");
+    glow.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, height);
+
+    stormSpiral(cx, cy, radius, t, "#e8f4fb", 9);
 
     ctx.beginPath();
-    ctx.moveTo(x - cloudWidth * 0.35, baseY);
-
-    ctx.bezierCurveTo(
-      x - cloudWidth * 0.55, baseY - 35 * growth,
-      x - cloudWidth * 0.22, top + 35,
-      x - cloudWidth * 0.12 + sway, top + 15
-    );
-
-    ctx.bezierCurveTo(
-      x - cloudWidth * 0.42, top - 8,
-      x - cloudWidth * 0.2, top - 18,
-      x, top - 8
-    );
-
-    ctx.bezierCurveTo(
-      x + cloudWidth * 0.22, top - 22,
-      x + cloudWidth * 0.3, top + 4,
-      x + cloudWidth * 0.13, top + 19
-    );
-
-    ctx.bezierCurveTo(
-      x + cloudWidth * 0.28, baseY - 35 * growth,
-      x + cloudWidth * 0.45, baseY - 18 * growth,
-      x + cloudWidth * 0.35, baseY
-    );
-
-    ctx.closePath();
-    ctx.fill();
+    ctx.arc(cx, cy, radius * .32, 0, Math.PI * 2);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = Math.max(3, radius * .06);
     ctx.stroke();
+
+    // Eye stays clear while the surrounding cloud bands spin.
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * .12, 0, Math.PI * 2);
+    ctx.fillStyle = "#7cc8e7";
+    ctx.fill();
+
+    label("EYE", cx, cy - 5);
+    label("EYEWALL · STRONGEST WINDS", cx, cy + radius * .32 + 24);
+    label("SPIRAL RAINBANDS", cx + radius * .6, cy - radius * .55);
+    label("OVERHEAD VIEW · ANIMATED ROTATION", cx, 24);
   }
 
-  function draw() {
-    if (!ctx) return;
-
+  function drawLandfall() {
     const t = elapsed / 1000;
-    const progress = stage / 6;
-    const temp = Number(ocean.value);
-    const wet = Number(moisture.value);
-    const windShear = Number(shear.value);
+    const cx = width * .67;
+    const ground = height * .79;
 
+    // Stormy sky.
+    const sky = ctx.createLinearGradient(0, 0, 0, ground);
+    sky.addColorStop(0, "#263648");
+    sky.addColorStop(1, "#73818a");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, width, ground);
+
+    // Rain streaks.
+    ctx.strokeStyle = "rgba(205,230,245,.55)";
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 85; i++) {
+      const x = (i * 47 + t * 100) % (width + 30);
+      const y = (i * 31 + t * 220) % ground;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 8, y + 18);
+      ctx.stroke();
+    }
+
+    // Distant animated lightning flashes.
+    const flash = Math.sin(t * 5.3) > .965 || Math.sin(t * 8.1) > .985;
+    if (flash) {
+      ctx.fillStyle = "rgba(255,255,230,.28)";
+      ctx.fillRect(0, 0, width, ground);
+
+      ctx.strokeStyle = "#fff6a8";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(width * .76, 20);
+      ctx.lineTo(width * .70, height * .25);
+      ctx.lineTo(width * .76, height * .25);
+      ctx.lineTo(width * .65, height * .48);
+      ctx.stroke();
+    }
+
+    // Blowing trees.
+    ctx.fillStyle = "#4e3c2d";
+    for (let i = 0; i < 5; i++) {
+      const x = width * (.09 + i * .115);
+      const lean = 10 + Math.sin(t * 3 + i) * 14;
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = "#4e3c2d";
+      ctx.beginPath();
+      ctx.moveTo(x, ground);
+      ctx.lineTo(x + lean, ground - 55);
+      ctx.stroke();
+
+      ctx.fillStyle = "#314d43";
+      ctx.beginPath();
+      ctx.ellipse(x + lean, ground - 65, 20, 28, -.25, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Ground and rising flood water.
+    ctx.fillStyle = "#35464c";
+    ctx.fillRect(0, ground, width, height - ground);
+    ctx.fillStyle = "#277eaa";
+    ctx.fillRect(0, ground + 12, width, height - ground);
+    ctx.strokeStyle = "rgba(220,245,255,.5)";
+    for (let i = 0; i < 7; i++) {
+      const x = (i * 95 + t * 30) % width;
+      ctx.beginPath();
+      ctx.moveTo(x, ground + 20 + Math.sin(t + i) * 3);
+      ctx.lineTo(x + 35, ground + 20 + Math.sin(t + i) * 3);
+      ctx.stroke();
+    }
+
+    // Small house, wind-bent roof.
+    ctx.fillStyle = "#b7a58c";
+    ctx.fillRect(width * .62, ground - 42, 64, 42);
+    ctx.fillStyle = "#493b39";
+    ctx.beginPath();
+    ctx.moveTo(width * .60, ground - 42);
+    ctx.lineTo(width * .66, ground - 66 + Math.sin(t * 2) * 3);
+    ctx.lineTo(width * .72, ground - 42);
+    ctx.closePath();
+    ctx.fill();
+
+    label("DAMAGING WINDS", width * .28, 32, "#79202b");
+    label("HEAVY RAIN + LIGHTNING", width * .70, 58, "#79202b");
+    label("FLOODING RISK", width * .5, height - 12, "#ffffff");
+  }
+
+  function drawEye() {
+    const t = elapsed / 1000;
     const cx = width / 2;
-    const seaY = height * 0.84;
-    const skyTop = 30;
-    const warmFactor = Math.max(0, Math.min(1, (temp - 20) / 12));
-    const moistureFactor = wet / 100;
-    const cloudGrowth = Math.min(1, 0.12 + progress * 1.2) *
-      (0.55 + moistureFactor * 0.45);
+    const ground = height * .78;
 
-    ctx.clearRect(0, 0, width, height);
+    // Daylight returns, but damage remains.
+    const sky = ctx.createLinearGradient(0, 0, 0, ground);
+    sky.addColorStop(0, "#70c7f2");
+    sky.addColorStop(1, "#d3f0ff");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, width, ground);
 
-    // Sky and ocean, like a scientific atmosphere cross-section.
+    // Storm wall surrounding the eye.
+    ctx.fillStyle = "#778797";
+    ctx.beginPath();
+    ctx.ellipse(cx, height * .22, width * .58, height * .27, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#c5d4e1";
+    ctx.beginPath();
+    ctx.ellipse(cx, height * .24, width * .34, height * .18, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+
+    label("INSIDE THE EYE · DAYLIGHT", cx, 26);
+    label("CALMER CENTER", cx, height * .24);
+
+    // Ground, broken trees, damaged home.
+    ctx.fillStyle = "#6b735f";
+    ctx.fillRect(0, ground, width, height - ground);
+
+    ctx.strokeStyle = "#514034";
+    ctx.lineWidth = 6;
+    for (let i = 0; i < 5; i++) {
+      const x = width * (.1 + i * .17);
+      ctx.beginPath();
+      ctx.moveTo(x, ground);
+      ctx.lineTo(x + 18, ground - 22);
+      ctx.lineTo(x + 32, ground - 18);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#b5a38c";
+    ctx.fillRect(cx - 34, ground - 35, 68, 35);
+    ctx.fillStyle = "#59433d";
+    ctx.beginPath();
+    ctx.moveTo(cx - 38, ground - 35);
+    ctx.lineTo(cx - 5, ground - 54);
+    ctx.lineTo(cx + 4, ground - 46);
+    ctx.lineTo(cx + 38, ground - 35);
+    ctx.fill();
+
+    ctx.fillStyle = "#397da1";
+    ctx.fillRect(0, ground + 14, width, height - ground - 14);
+    label("DAMAGE AND FLOODING REMAIN", cx, height - 12, "#ffffff");
+  }
+
+  function drawAftermath() {
+    const t = elapsed / 1000;
+    const ground = height * .68;
+
+    // Overcast clearing sky.
+    const sky = ctx.createLinearGradient(0, 0, 0, ground);
+    sky.addColorStop(0, "#91a5b1");
+    sky.addColorStop(1, "#e0d7c8");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, width, ground);
+
+    ctx.fillStyle = "#676d61";
+    ctx.fillRect(0, ground, width, height - ground);
+
+    // Flooded street.
+    ctx.fillStyle = "#347f9c";
+    ctx.fillRect(0, ground + 22, width, height - ground - 22);
+    ctx.strokeStyle = "rgba(230,250,255,.5)";
+    for (let i = 0; i < 8; i++) {
+      const x = (i * 71 + t * 18) % width;
+      ctx.beginPath();
+      ctx.moveTo(x, ground + 34 + Math.sin(t + i) * 2);
+      ctx.lineTo(x + 27, ground + 34 + Math.sin(t + i) * 2);
+      ctx.stroke();
+    }
+
+    // Broken trees and debris.
+    ctx.strokeStyle = "#4d4034";
+    ctx.lineWidth = 7;
+    for (let i = 0; i < 6; i++) {
+      const x = width * (.07 + i * .16);
+      ctx.beginPath();
+      ctx.moveTo(x, ground + 24);
+      ctx.lineTo(x + 25, ground - 10);
+      ctx.lineTo(x + 46, ground - 5);
+      ctx.stroke();
+    }
+
+    // Damaged houses and roofs.
+    for (let i = 0; i < 3; i++) {
+      const x = width * (.12 + i * .29);
+      ctx.fillStyle = "#b5a58c";
+      ctx.fillRect(x, ground - 52, 68, 52);
+      ctx.fillStyle = "#554b49";
+      ctx.beginPath();
+      ctx.moveTo(x - 8, ground - 52);
+      ctx.lineTo(x + 20, ground - 75);
+      ctx.lineTo(x + 38, ground - 60);
+      ctx.lineTo(x + 76, ground - 52);
+      ctx.fill();
+
+      ctx.fillStyle = "#35414a";
+      ctx.fillRect(x + 15, ground - 32, 15, 20);
+    }
+
+    label("AFTERMATH", width / 2, 25);
+    label("DAMAGED BUILDINGS", width * .5, ground - 86);
+    label("FLOODING · DEBRIS · POWER OUTAGES", width / 2, height - 12, "#ffffff");
+  }
+
+  function drawSideView() {
+    const t = elapsed / 1000;
+    const p = stage / 6;
+    const cx = width / 2;
+    const seaY = height * .84;
+
     const sky = ctx.createLinearGradient(0, 0, 0, seaY);
     sky.addColorStop(0, "#bce8fb");
     sky.addColorStop(1, "#e3f7ff");
@@ -163,127 +409,81 @@
     ctx.fillStyle = "#0861a8";
     ctx.fillRect(0, seaY, width, height - seaY);
 
-    // Moving ocean waves.
     ctx.strokeStyle = "#3f9bd1";
     ctx.lineWidth = 3;
     ctx.beginPath();
     for (let x = 0; x <= width; x += 4) {
-      const y = seaY + Math.sin(x * 0.045 + t * 2) * 4;
-      if (x === 0) ctx.moveTo(x, y);
+      const y = seaY + Math.sin(x * .045 + t * 2) * 4;
+      if (!x) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
 
-    roundedLabel("WARM OCEAN", cx, height - 12, "#ffffff");
+    label("WARM OCEAN", cx, height - 12, "#ffffff");
 
-    // Evaporation and surface inflow.
     for (let i = 0; i < 5; i++) {
-      const x = width * (0.12 + i * 0.19);
-      const rise = stage === 0 ? 25 : 50 + progress * 100;
-      arrow(
-        x, seaY - 8,
-        x + Math.sin(t * 1.5 + i) * 7, seaY - rise,
-        "#1698bc", t * 2 + i, ""
-      );
+      const x = width * (.12 + i * .19);
+      arrow(x, seaY - 8, x + Math.sin(t + i) * 7,
+        seaY - (stage === 0 ? 25 : 55 + p * 95), "#1698bc", t * 2 + i);
     }
 
     if (stage <= 1) {
-      roundedLabel("EVAPORATION", cx, seaY - 35);
-      roundedLabel("WARM, HUMID AIR RISES", cx, seaY - 75);
+      label("EVAPORATION", cx, seaY - 35);
+      label("WARM, HUMID AIR RISES", cx, seaY - 75);
     }
 
-    // Thunderstorm towers grow taller through the lesson.
     if (stage >= 1) {
-      const towerBase = seaY - 5;
-      const towerTop = height * (0.43 - progress * 0.25);
-      const separation = width * (0.13 + progress * 0.08);
-
-      cloudTower(cx - separation, towerBase, towerTop, width * 0.23,
-        cloudGrowth, t);
-      cloudTower(cx + separation, towerBase, towerTop, width * 0.23,
-        cloudGrowth, t + 2);
-
-      if (stage >= 2) {
-        roundedLabel("RISING AIR COOLS", cx, height * 0.40);
-        roundedLabel("CONDENSATION RELEASES HEAT", cx, height * 0.47);
-      }
+      const top = height * (.43 - p * .25);
+      cloud(cx - width * .19, seaY - 5, top, width * .27,
+        Math.min(1, .2 + p), t);
+      cloud(cx + width * .19, seaY - 5, top, width * .27,
+        Math.min(1, .2 + p), t + 2);
+      label("RISING AIR COOLS · CLOUDS GROW", cx, height * .34);
     }
 
-    // Inflow at the surface and outward flow high in the atmosphere.
     if (stage >= 2) {
-      arrow(width * 0.08, seaY - 16, cx - 18, seaY - 16,
-        "#df273b", t * 2, "");
-      arrow(width * 0.92, seaY - 16, cx + 18, seaY - 16,
-        "#df273b", t * 2 + 1, "");
-      roundedLabel("LOW PRESSURE · AIR FLOWS IN", cx, seaY - 40);
-
-      if (stage >= 3) {
-        arrow(cx - 22, height * 0.34, width * 0.18, height * 0.20,
-          "#df273b", t * 2, "");
-        arrow(cx + 22, height * 0.34, width * 0.82, height * 0.20,
-          "#df273b", t * 2 + 1, "");
-        roundedLabel("AIR SPREADS OUT ALOFT", cx, height * 0.16);
-      }
+      arrow(width * .08, seaY - 16, cx - 18, seaY - 16, "#df273b", t * 2);
+      arrow(width * .92, seaY - 16, cx + 18, seaY - 16, "#df273b", t * 2 + 1);
+      label("LOW PRESSURE · AIR FLOWS IN", cx, seaY - 40);
     }
 
-    // Developing rotating bands.
     if (stage >= 3) {
-      ctx.save();
-      ctx.translate(cx, height * 0.53);
-      ctx.rotate(t * (windShear > 60 ? 0.12 : 0.32));
+      arrow(cx - 22, height * .34, width * .18, height * .20, "#df273b", t * 2);
+      arrow(cx + 22, height * .34, width * .82, height * .20, "#df273b", t * 2 + 1);
+      label("AIR SPREADS OUT ALOFT", cx, height * .16);
 
-      const radius = Math.min(width * 0.26, height * 0.24) *
-        (0.35 + progress * 0.85);
-
-      for (let arm = 0; arm < 5; arm++) {
-        ctx.save();
-        ctx.rotate(arm * Math.PI * 2 / 5);
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 8;
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, -0.25, Math.PI * 0.72);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      ctx.fillStyle = "#143b61";
-      ctx.beginPath();
-      ctx.arc(0, 0, 8 + progress * 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(0, 0, 11 + progress * 4, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-
-      if (stage >= 4) {
-        roundedLabel("CENTER OF CIRCULATION", cx, height * 0.53 + 32);
-      }
-
-      if (stage >= 5) {
-        roundedLabel("SPIRAL RAINBANDS", cx + radius * 0.55,
-          height * 0.53 - radius * 0.45);
-      }
-
-      if (stage >= 6) {
-        roundedLabel("EYE", cx, height * 0.53 - 3);
-        roundedLabel("EYEWALL · STRONGEST WINDS", cx, height * 0.53 + radius + 25);
-      }
+      stormSpiral(cx, height * .57,
+        Math.min(width * .2, height * .2) * (.5 + p * .5), t, "#ffffff", 6);
     }
 
-    // Wind shear illustration: strong shear tilts cloud tops away from the center.
-    if (stage >= 2 && windShear >= 35) {
-      const offset = windShear * 0.45;
-      arrow(cx - offset, 45, cx + offset, 45, "#bd4a27", t, "");
-      roundedLabel("WIND SHEAR TILTS THE STORM", cx, 28, "#8e351f");
+    if (stage >= 4) label("ORGANIZED CIRCULATION", cx, height * .94);
+    if (stage >= 5) label("TROPICAL STORM", cx, 28);
+    if (stage >= 6) {
+      label("HURRICANE", cx, 50);
+      label("EYE · EYEWALL · RAINBANDS", cx, height * .72);
     }
 
-    // Footer legend.
-    ctx.fillStyle = "#12334d";
-    ctx.font = "11px system-ui";
-    ctx.fillText("BLUE: moist air  ·  RED: airflow  ·  WHITE: cloud bands", 10, 16);
+    if (Number(shear.value) >= 35 && stage >= 2) {
+      arrow(cx - 40, 40, cx + 40, 40, "#bd4a27", t);
+      label("WIND SHEAR", cx, 24, "#8e351f");
+    }
+  }
+
+  function draw() {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, width, height);
+
+    if (stage === 8) {
+      drawLandfall();
+    } else if (stage === 9) {
+      drawEye();
+    } else if (stage === 10) {
+      drawAftermath();
+    } else if (overhead || stage === 7) {
+      drawOverhead();
+    } else {
+      drawSideView();
+    }
   }
 
   function update() {
@@ -300,39 +500,14 @@
         ? "Illustration: favorable conditions"
         : "Illustration: some conditions may limit development";
 
-    $("formation-stage").textContent = stages[stage][0];
-    $("formation-explanation").textContent = stages[stage][1];
+    $("formation-stage").textContent = scenes[stage][0];
+    $("formation-explanation").textContent = scenes[stage][1];
     timeline.value = stage;
-    draw();
-  }
 
-  function next() {
-    if (stage < 6) stage++;
-    else pause();
-    update();
-  }
-
-  function tick(now) {
-    if (!playing) return;
-    if (!last) last = now;
-
-    const delta = Math.min(100, now - last);
-    last = now;
-    elapsed += delta;
-
-    const interval = 4200 / Number(speed.value);
-    if (elapsed >= (stage + 1) * interval) next();
+    $("formation-view").textContent =
+      (overhead || stage === 7) ? "↙ Side view" : "↗ Overhead view";
 
     draw();
-    animation = requestAnimationFrame(tick);
-  }
-
-  function play() {
-    if (playing) return;
-    playing = true;
-    last = 0;
-    $("formation-play").textContent = "Ⅱ Pause";
-    animation = requestAnimationFrame(tick);
   }
 
   function pause() {
@@ -341,10 +516,55 @@
     $("formation-play").textContent = "▶ Play";
   }
 
+  function next() {
+    if (stage < scenes.length - 1) {
+      stage++;
+      sceneStart = elapsed;
+    } else {
+      pause();
+    }
+    update();
+  }
+
+  function play() {
+    if (playing) return;
+    playing = true;
+    last = 0;
+    sceneStart = elapsed;
+    $("formation-play").textContent = "Ⅱ Pause";
+    animation = requestAnimationFrame(tick);
+  }
+
+  function tick(now) {
+    if (!playing) return;
+    if (!last) last = now;
+
+    elapsed += Math.min(100, now - last);
+    last = now;
+
+    const interval = 6500 / Number(speed.value);
+    if (elapsed - sceneStart >= interval) {
+      if (stage < scenes.length - 1) {
+        next();
+        sceneStart = elapsed;
+      } else {
+        pause();
+        draw();
+        return;
+      }
+    }
+
+    draw();
+    animation = requestAnimationFrame(tick);
+  }
+
   $("formation-play").addEventListener("click", () => {
     if (playing) pause();
     else {
-      if (stage >= 6) stage = 0;
+      if (stage >= scenes.length - 1) {
+        stage = 0;
+        elapsed = 0;
+      }
       play();
     }
   });
@@ -354,16 +574,27 @@
     next();
   });
 
+  $("formation-view").addEventListener("click", () => {
+    overhead = !overhead;
+    draw();
+    $("formation-view").textContent =
+      overhead ? "↙ Side view" : "↗ Overhead view";
+  });
+
   $("formation-reset").addEventListener("click", () => {
     pause();
     stage = 0;
+    overhead = false;
     elapsed = 0;
+    sceneStart = 0;
     update();
   });
 
   timeline.addEventListener("input", () => {
     pause();
     stage = Number(timeline.value);
+    overhead = stage === 7;
+    sceneStart = elapsed;
     update();
   });
 
