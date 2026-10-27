@@ -267,10 +267,9 @@ function stormSpiral(cx, cy, radius, t, color = "#f6fbff", arms = 7) {
     ctx.fillStyle = "#7cc8e7";
     ctx.fill();
 
-    label("EYE", cx, cy - 5);
-    label("EYEWALL · STRONGEST WINDS", cx, cy + radius * .32 + 24);
-    label("SPIRAL RAINBANDS", cx + radius * .6, cy - radius * .55);
-    label("OVERHEAD VIEW · ANIMATED ROTATION", cx, 24);
+   label("EYE", cx, cy);
+label("EYEWALL", cx, cy + radius * 0.32 + 22);
+label("SPIRAL RAINBANDS", width * 0.76, height * 0.24);
   }
 
   function drawLandfall() {
@@ -625,7 +624,7 @@ function stormSpiral(cx, cy, radius, t, color = "#f6fbff", arms = 7) {
     elapsed += Math.min(100, now - last);
     last = now;
 
-    const interval = 6500 / Number(speed.value);
+    const interval = 14000 / Number(speed.value);
     if (elapsed - sceneStart >= interval) {
       if (stage < scenes.length - 1) {
         next();
