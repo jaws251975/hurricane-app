@@ -50,16 +50,22 @@
   let overhead = false;
   let sceneStart = 0;
 
-  function resize() {
-    const box = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    width = Math.max(300, box.width);
-    height = Math.max(300, box.height || 320);
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    draw();
-  }
+
+function resize() {
+  const box = canvas.getBoundingClientRect();
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+  // Match the drawing coordinates to the actual visible canvas.
+  width = Math.max(1, box.width);
+  height = Math.max(1, box.height);
+
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+
 
   function label(text, x, y, color = "#102b43") {
     ctx.font = "bold 12px system-ui";
