@@ -366,6 +366,41 @@ label("SPIRAL RAINBANDS", width * 0.76, height * 0.24);
     ctx.closePath();
     ctx.fill();
 
+    // Wind strength increases with the slider conditions.
+    const debrisCount = Math.round(strength * 18);
+
+    for (let i = 0; i < debrisCount; i++) {
+      const x = (i * 83 + t * (80 + strength * 220)) % width;
+      const y = (i * 37 + Math.sin(t * 3 + i) * 25) % (ground - 15);
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(t * 4 + i);
+
+      ctx.fillStyle = i % 2 === 0 ? "#c9b69a" : "#51443b";
+      ctx.fillRect(-4, -2, 9, 4);
+
+      ctx.restore();
+    }
+
+    // At high intensity, a roof panel breaks away and blows across the scene.
+    if (strength > 0.72) {
+      const roofX = (width * 0.64 + t * 100) % (width + 60);
+
+      ctx.save();
+      ctx.translate(roofX, ground - 72 - Math.abs(Math.sin(t * 3)) * 24);
+      ctx.rotate(Math.sin(t * 4) * 0.7);
+
+      ctx.fillStyle = "#493b39";
+      ctx.beginPath();
+      ctx.moveTo(-24, 0);
+      ctx.lineTo(0, -15);
+      ctx.lineTo(24, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
     label("DAMAGING WINDS", width * .28, 32, "#79202b");
     label("HEAVY RAIN + LIGHTNING", width * .70, 58, "#79202b");
     label("FLOODING RISK", width * .5, height - 12, "#ffffff");
