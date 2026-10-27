@@ -367,7 +367,64 @@ label("SPIRAL RAINBANDS", width * 0.76, height * 0.24);
     ctx.fill();
 
     // Wind strength increases with the slider conditions.
-    const debrisCount = Math.round(strength * 18);
+
+    // Longer-lasting debris that blows across the scene.
+    const debrisCount = Math.round(strength * 24);
+
+    for (let i = 0; i < debrisCount; i++) {
+      const travelSpeed = 35 + strength * 100;
+      const travelDistance = width + 180;
+
+      // Each piece takes longer to cross the screen.
+      const x = (
+        i * 83 + t * travelSpeed
+      ) % travelDistance - 60;
+
+      // Debris stays airborne and moves up and down in the wind.
+      const y = Math.min(
+        ground - 12,
+        25 + (
+          i * 37 +
+          Math.sin(t * 1.4 + i) * (12 + strength * 28)
+        ) % Math.max(30, ground - 35)
+      );
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(t * (1.5 + strength * 2) + i);
+
+      ctx.fillStyle = i % 2 === 0 ? "#c9b69a" : "#51443b";
+      ctx.fillRect(-5, -2, 11, 4);
+
+      ctx.restore();
+    }
+
+    // Roof fragments travel across the scene for longer.
+    if (strength > 0.72) {
+      const roofTravel = width + 180;
+      const roofX = (
+        width * 0.35 + t * (30 + strength * 65)
+      ) % roofTravel - 60;
+
+      const roofY =
+        ground - 85 -
+        Math.abs(Math.sin(t * 1.2)) * (25 + strength * 20);
+
+      ctx.save();
+      ctx.translate(roofX, roofY);
+      ctx.rotate(Math.sin(t * 1.5) * 0.9);
+
+      ctx.fillStyle = "#493b39";
+      ctx.beginPath();
+      ctx.moveTo(-28, 0);
+      ctx.lineTo(0, -17);
+      ctx.lineTo(28, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
 
     for (let i = 0; i < debrisCount; i++) {
       const x = (i * 83 + t * (80 + strength * 220)) % width;
