@@ -272,95 +272,6 @@
 </section>
 
 
-
-
-<!-- Interactive Hurricane Formation Lab -->
-<section id="formation-lab" class="panel" style="margin-top:24px;padding:18px">
-  <div class="panel-heading">
-    <div>
-      <p class="eyebrow">STORMWATCH LAB</p>
-      <h2>How Hurricanes Form</h2>
-    </div>
-    <span class="map-key">EDUCATIONAL MODEL</span>
-  </div>
-
-  <p class="subtitle">
-    Explore how warm ocean water, moist air, rotation, and wind shear
-    influence hurricane development. This is an illustration, not a forecast.
-  </p>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px">
-    <div>
-      <canvas id="formation-canvas"
-        aria-label="Animated illustration of hurricane formation"
-        style="display:block;width:100%;height:320px;border-radius:10px;overflow:hidden">
-      </canvas>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-     <button id="formation-play" class="refresh-button" type="button">▶ Play</button>
-<button id="formation-next" class="refresh-button" type="button">Next stage →</button>
-<button id="formation-view" class="refresh-button" type="button">↗ Overhead view</button>
-<button id="formation-reset" class="refresh-button" type="button">↺ Reset</button>
-      </div>
-
-      <label for="formation-progress" style="display:block;margin-top:16px">
-        <strong>Lesson timeline</strong>
-      </label>
-      <input id="formation-progress" type="range"
-        min="0" max="10" value="0" step="1"
-        style="width:100%">
-
-      <p id="formation-conditions" aria-live="polite">Checking conditions…</p>
-    </div>
-
-    <div class="panel" style="padding:16px">
-      <p class="eyebrow">FORMATION CONDITIONS</p>
-
-      <label for="ocean-temp">Ocean temperature</label>
-      <input id="ocean-temp" type="range" min="20" max="34"
-        value="29" step="1" style="width:100%">
-      <strong id="ocean-value">29°C</strong>
-
-      <label for="air-moisture" style="display:block;margin-top:18px">
-        Atmospheric moisture
-      </label>
-      <input id="air-moisture" type="range" min="20" max="100"
-        value="70" step="5" style="width:100%">
-      <strong id="moisture-value">70%</strong>
-
-      <label for="wind-shear" style="display:block;margin-top:18px">
-        Wind shear
-      </label>
-      <input id="wind-shear" type="range" min="0" max="100"
-        value="20" step="5" style="width:100%">
-      <strong id="shear-value">20%</strong>
-
-      <label for="formation-speed" style="display:block;margin-top:18px">
-        Animation playback
-      </label>
-      <select id="formation-speed" style="width:100%;padding:10px">
-        <option value="1">Normal</option>
-        <option value="2">Fast</option>
-        <option value="4" selected>Very Fast</option>
-      </select>
-
-      <hr style="margin:18px 0;border-color:var(--line)">
-
-      <p class="eyebrow">CURRENT DEVELOPMENT STAGE</p>
-      <h3 id="formation-stage">1 · Warm ocean</h3>
-      <p id="formation-explanation" aria-live="polite">
-        Sunlight warms the ocean. Water evaporates and adds moisture to the air.
-      </p>
-
-      <p style="font-size:12px;color:var(--muted)">
-        The sliders demonstrate general scientific relationships. They do not
-        calculate real atmospheric physics or predict whether a real storm will form.
-      </p>
-    </div>
-  </div>
-</section>
-<!-- End Formation Lab -->
-
     <!-- Safety notice -->
     <section class="notice">
       <strong>Safety note</strong>
@@ -398,6 +309,5 @@
   <!-- Load Leaflet before the tracker JavaScript -->
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="script.js"></script>
-<script src="formation-lab.js"></script>
 </body>
 </html>
