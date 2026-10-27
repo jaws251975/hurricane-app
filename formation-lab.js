@@ -211,16 +211,7 @@ function stormSpiral(cx, cy, radius, t, color = "#f6fbff", arms = 7) {
 }
 
 
-    // Clearly visible eye.
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * .12, 0, Math.PI * 2);
-    ctx.fillStyle = "#153954";
-    ctx.fill();
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "#ffffff";
-    ctx.stroke();
-    ctx.restore();
-  }
+ 
 
   function drawOverhead() {
     const t = elapsed / 1000;
