@@ -94,39 +94,122 @@
     ctx.fill();
   }
 
-  function cloud(x, base, top, w, growth, t) {
-    const y = base - (base - top) * growth;
-    const sway = Math.sin(t + x * .03) * 4;
-    ctx.fillStyle = "#9ca8b5";
+
+function cloud(x, base, top, w, growth, t) {
+  const g = Math.max(0.05, Math.min(1, growth));
+  const y = base - (base - top) * g;
+  const sway = Math.sin(t * 0.65 + x * 0.015) * 3;
+  const puff = 5 + g * 5;
+
+  ctx.save();
+  ctx.translate(sway, 0);
+
+  // Soft shadow underneath the growing cloud tower.
+  ctx.fillStyle = "rgba(66,100,125,0.13)";
+  ctx.beginPath();
+  ctx.ellipse(x, base - 5, w * 0.48, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Rounded cloud tower, with gently animated edges.
+  ctx.beginPath();
+  ctx.moveTo(x - w * 0.35, base);
+  ctx.bezierCurveTo(
+    x - w * 0.53, base - 30 * g,
+    x - w * 0.22, y + 35,
+    x - w * 0.20, y + 14
+  );
+
+  ctx.bezierCurveTo(
+    x - w * 0.39, y + 2,
+    x - w * 0.29, y - puff,
+    x - w * 0.12, y + 3
+  );
+
+  ctx.bezierCurveTo(
+    x - w * 0.16, y - 16 - puff,
+    x - w * 0.02, y - 25 - puff,
+    x + w * 0.08, y - 10
+  );
+
+  ctx.bezierCurveTo(
+    x + w * 0.31, y - 25,
+    x + w * 0.35, y + 1,
+    x + w * 0.20, y + 15
+  );
+
+  ctx.bezierCurveTo(
+    x + w * 0.40, base - 45 * g,
+    x + w * 0.45, base - 20 * g,
+    x + w * 0.35, base
+  );
+
+  ctx.closePath();
+
+  const gradient = ctx.createLinearGradient(x, y, x, base);
+  gradient.addColorStop(0, "#edf7fc");
+  gradient.addColorStop(0.35, "#b9cbd8");
+  gradient.addColorStop(1, "#899eaf");
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.65)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+
+  
+function stormSpiral(cx, cy, radius, t, color = "#f6fbff", arms = 7) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(t * 0.22);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  for (let i = 0; i < arms; i++) {
+    ctx.save();
+    ctx.rotate(i * Math.PI * 2 / arms);
+
     ctx.beginPath();
-    ctx.moveTo(x - w * .4, base);
-    ctx.bezierCurveTo(x - w * .5, y + 35, x - w * .2, y - 10, x + sway, y);
-    ctx.bezierCurveTo(x + w * .4, y - 20, x + w * .4, y + 25, x + w * .3, base);
-    ctx.closePath();
-    ctx.fill();
+
+    // A flowing spiral that curls inward toward the eye.
+    for (let j = 0; j <= 100; j++) {
+      const u = j / 100;
+      const angle = u * Math.PI * 1.65;
+      const r = radius * (0.16 + u * 0.82);
+      const x = r * Math.cos(angle);
+      const y = r * Math.sin(angle);
+
+      if (j === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+
+    ctx.strokeStyle = "rgba(105,154,185,0.45)";
+    ctx.lineWidth = Math.max(7, radius * 0.13);
+    ctx.stroke();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(4, radius * 0.075);
+    ctx.stroke();
+
+    ctx.restore();
   }
 
-  function stormSpiral(cx, cy, radius, t, color = "#f6fbff", arms = 7) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(t * .65);
-    ctx.lineCap = "round";
+  // A clear eye that stays visible while the storm rotates.
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 0.13, 0, Math.PI * 2);
+  ctx.fillStyle = "#72c8e9";
+  ctx.fill();
 
-    for (let i = 0; i < arms; i++) {
-      ctx.save();
-      ctx.rotate(i * Math.PI * 2 / arms);
-      ctx.beginPath();
-      ctx.moveTo(radius * .12, 0);
-      ctx.bezierCurveTo(
-        radius * .35, -radius * .45,
-        radius * .75, -radius * .2,
-        radius, -radius * .7
-      );
-      ctx.strokeStyle = color;
-      ctx.lineWidth = Math.max(4, radius * .09);
-      ctx.stroke();
-      ctx.restore();
-    }
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 
     // Clearly visible eye.
     ctx.beginPath();
