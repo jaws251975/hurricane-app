@@ -216,15 +216,27 @@ function stormSpiral(cx, cy, radius, t, color = "#f6fbff", arms = 7) {
   ctx.restore();
 }
 
+  // 0 = weaker storm conditions, 1 = stronger storm conditions.
+  function stormStrength() {
+    const temp = (Number(ocean.value) - 20) / 14;
+    const wet = (Number(moisture.value) - 20) / 80;
+    const shearPenalty = Number(shear.value) / 100;
 
+    return Math.max(
+      0,
+      Math.min(1, temp * 0.45 + wet * 0.35 + (1 - shearPenalty) * 0.20)
+    );
+  }
  
 
   function drawOverhead() {
     const t = elapsed / 1000;
     const cx = width / 2;
     const cy = height / 2;
+       const strength = stormStrength();
     const radius = Math.min(width * .38, height * .38) *
-      Math.min(1.2, .48 + Math.max(0, stage - 6) * .12);
+      Math.min(1.2, .30 + Math.max(0, stage - 6) * .12) *
+      (0.65 + strength * 0.55);
 
     // Ocean.
     ctx.fillStyle = "#07558b";
@@ -273,7 +285,7 @@ label("SPIRAL RAINBANDS", width * 0.76, height * 0.24);
     const t = elapsed / 1000;
     const cx = width * .67;
     const ground = height * .79;
-
+    const strength = stormStrength();
     // Stormy sky.
     const sky = ctx.createLinearGradient(0, 0, 0, ground);
     sky.addColorStop(0, "#263648");
@@ -284,7 +296,9 @@ label("SPIRAL RAINBANDS", width * 0.76, height * 0.24);
     // Rain streaks.
     ctx.strokeStyle = "rgba(205,230,245,.55)";
     ctx.lineWidth = 1.5;
-    for (let i = 0; i < 85; i++) {
+        const rainCount = Math.round(22 + strength * 105);
+
+    for (let i = 0; i < rainCount; i++) {
       const x = (i * 47 + t * 100) % (width + 30);
       const y = (i * 31 + t * 220) % ground;
       ctx.beginPath();
