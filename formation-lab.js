@@ -426,19 +426,6 @@ label("SPIRAL RAINBANDS", width * 0.76, height * 0.24);
     }
 
 
-    for (let i = 0; i < debrisCount; i++) {
-      const x = (i * 83 + t * (80 + strength * 220)) % width;
-      const y = (i * 37 + Math.sin(t * 3 + i) * 25) % (ground - 15);
-
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(t * 4 + i);
-
-      ctx.fillStyle = i % 2 === 0 ? "#c9b69a" : "#51443b";
-      ctx.fillRect(-4, -2, 9, 4);
-
-      ctx.restore();
-    }
 
     // At high intensity, a roof panel breaks away and blows across the scene.
     if (strength > 0.72) {
