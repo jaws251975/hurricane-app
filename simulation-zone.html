@@ -1,1 +1,186 @@
  
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071525">
+  <title>StormWatch — Simulation Zone</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    .sim-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+      gap: 18px;
+    }
+    #sim-map { height: 520px; background: #091827; }
+    .sim-controls { padding: 18px; display: grid; gap: 14px; }
+    .sim-controls label {
+      display: block; color: var(--muted);
+      font-size: 11px; margin-bottom: 6px;
+    }
+    .sim-controls input, .sim-controls select {
+      width: 100%; padding: 10px;
+      border: 1px solid var(--line); border-radius: 8px;
+      background: #081624; color: var(--text);
+    }
+    .sim-controls button {
+      padding: 11px; border: 1px solid #2a5268;
+      border-radius: 8px; background: #102a3d;
+      color: var(--text); cursor: pointer;
+    }
+    .sim-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .sim-buttons button { flex: 1; }
+    .sim-metrics {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; padding: 14px;
+    }
+    .sim-metric {
+      padding: 13px; border: 1px solid var(--line);
+      border-radius: 9px; background: #081624;
+    }
+    .sim-metric span {
+      display: block; color: var(--muted);
+      font: 10px monospace; margin-bottom: 8px;
+    }
+    .sim-metric strong { font-size: 20px; overflow-wrap: anywhere; }
+    .sim-status, .sim-note {
+      padding: 12px 14px; color: var(--muted);
+      font-size: 12px; line-height: 1.6;
+    }
+    .pressure-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: #2865c9cc; border: 2px solid #91c5ff;
+      color: white; font-size: 22px; font-weight: 900;
+    }
+    @media(max-width:850px) {
+      .sim-grid { grid-template-columns: 1fr; }
+      #sim-map { height: 420px; }
+      .topbar { flex-wrap: wrap; padding: 12px; }
+      .site-nav { order: 3; width: 100%; }
+      .layout { padding: 25px 12px; }
+    }
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="brand-mark">◉</span> STORM<span>WATCH</span>
+  </a>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a class="site-nav-link" href="index.html">Live Tracker</a>
+    <a class="site-nav-link" href="images.html">Hurricane Run</a>
+    <a class="site-nav-link site-nav-active" href="simulation-zone.html">Simulation Zone</a>
+  </nav>
+  <div class="live-label">MODEL SIMULATION</div>
+</header>
+
+<main class="layout">
+  <section class="intro">
+    <p class="eyebrow">STORMWATCH LAB</p>
+    <h1>Simulation Zone</h1>
+    <p class="subtitle">
+      Create a hypothetical hurricane, choose where it begins, and test how
+      high-pressure systems can influence its track. This is an educational
+      simulation, not an official forecast.
+    </p>
+  </section>
+
+  <div class="sim-grid">
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">INTERACTIVE MAP</p>
+          <h2>Storm simulation map</h2>
+        </div>
+        <span class="map-key">Click to place</span>
+      </div>
+      <div id="sim-map" role="region" aria-label="Hurricane simulation map"></div>
+      <div id="sim-status" class="sim-status" aria-live="polite">
+        Click the map to choose your storm's starting point.
+      </div>
+      <p class="sim-note">
+        🌀 Red marker: simulated hurricane. Blue H: illustrative high-pressure
+        center. The track is model-generated and does not represent a real forecast.
+      </p>
+    </section>
+
+    <aside class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">MODEL SETTINGS</p>
+          <h2>Create a hurricane</h2>
+        </div>
+      </div>
+      <div class="sim-controls">
+        <div>
+          <label for="profile">Storm profile</label>
+          <select id="profile">
+            <option value="moderate">Moderate Atlantic hurricane</option>
+            <option value="intense">Intense major hurricane</option>
+            <option value="slow">Slow-moving coastal storm</option>
+          </select>
+        </div>
+        <div>
+          <label for="wind">Starting wind speed</label>
+          <input id="wind" type="range" min="35" max="160" value="75" step="5">
+          <strong id="wind-value">75 mph</strong>
+        </div>
+        <div>
+          <label for="speed">Simulation speed</label>
+          <select id="speed">
+            <option value="1">Normal</option>
+            <option value="2">Fast</option>
+            <option value="4">Very fast</option>
+          </select>
+        </div>
+        <div class="sim-buttons">
+          <button id="start-sim" type="button">▶ Start</button>
+          <button id="pause-sim" type="button">Ⅱ Pause</button>
+          <button id="reset-sim" type="button">↺ Reset</button>
+        </div>
+        <div class="sim-buttons">
+          <button id="pressure-mode" type="button">＋ Place high pressure</button>
+          <button id="clear-pressure" type="button">Clear pressure</button>
+        </div>
+        <p id="pressure-help" class="sim-note">
+          To add a high-pressure system, press its button and then click the map.
+          The model will steer the storm away from its center.
+        </p>
+      </div>
+
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">SCENARIO DASHBOARD</p>
+          <h2>Estimated impacts</h2>
+        </div>
+      </div>
+      <div class="sim-metrics">
+        <div class="sim-metric"><span>MAX WIND</span><strong id="metric-wind">—</strong></div>
+        <div class="sim-metric"><span>CATEGORY</span><strong id="metric-category">—</strong></div>
+        <div class="sim-metric"><span>HOUSES AFFECTED</span><strong id="metric-houses">—</strong></div>
+        <div class="sim-metric"><span>EST. DAMAGE</span><strong id="metric-damage">—</strong></div>
+        <div class="sim-metric"><span>POTENTIAL FATALITIES</span><strong id="metric-deaths">—</strong></div>
+        <div class="sim-metric"><span>TRACK STEPS</span><strong id="metric-steps">0</strong></div>
+      </div>
+      <p class="sim-note">
+        Impact figures are rough fictional estimates, not predictions. This
+        first version does not yet use actual historical storm records or
+        local population data. It does not model storm surge, evacuation,
+        building strength, or real-world vulnerability.
+      </p>
+    </aside>
+  </div>
+</main>
+
+<footer class="layout">
+  <span>StormWatch Simulation Zone</span>
+  <span>Educational model only · Not for emergency decisions</span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="simulation.js"></script>
+</body>
+</html>
