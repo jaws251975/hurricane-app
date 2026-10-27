@@ -1548,6 +1548,12 @@ const DATASETS = [
         label: 'Eastern/Central Pacific',
         url: './data/hurdat2-nepac-1949-2025-092926.txt'
     }
+    
+    {
+        label: '2026 Supplemental Advisory Tracks',
+        url: './data/hurdat2-2026-supplement.txt'
+    }
+
 ];
 
 
