@@ -299,16 +299,17 @@
       </canvas>
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button id="formation-play" class="refresh-button" type="button">▶ Play</button>
-        <button id="formation-next" class="refresh-button" type="button">Next stage →</button>
-        <button id="formation-reset" class="refresh-button" type="button">↺ Reset</button>
+     <button id="formation-play" class="refresh-button" type="button">▶ Play</button>
+<button id="formation-next" class="refresh-button" type="button">Next stage →</button>
+<button id="formation-view" class="refresh-button" type="button">↗ Overhead view</button>
+<button id="formation-reset" class="refresh-button" type="button">↺ Reset</button>
       </div>
 
       <label for="formation-progress" style="display:block;margin-top:16px">
         <strong>Lesson timeline</strong>
       </label>
       <input id="formation-progress" type="range"
-        min="0" max="6" value="0" step="1"
+        min="0" max="10" value="0" step="1"
         style="width:100%">
 
       <p id="formation-conditions" aria-live="polite">Checking conditions…</p>
