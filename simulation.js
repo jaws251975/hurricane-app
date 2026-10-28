@@ -362,6 +362,7 @@
     };
 
     step++;
+
     // Illustrative wind variation, not a physical intensity forecast.
     const baseWind =
       Number($("wind").value) +
@@ -371,8 +372,10 @@
     const overLand = isOverLand(current.lat, current.lng);
 
     if (overLand) {
+      // Gradually weaken the storm over land.
       landPenalty = Math.min(55, landPenalty + 8);
     } else {
+      // Allow gradual recovery after returning over water.
       landPenalty = Math.max(0, landPenalty - 2);
     }
 
@@ -382,6 +385,7 @@
     );
 
     maxWind = Math.max(maxWind, currentWind);
+
 
     const point = [current.lat, current.lng];
     trackPoints.push(point);
