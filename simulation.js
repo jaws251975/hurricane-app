@@ -32,6 +32,10 @@
   let totalHouses = 0;
   let totalDeaths = 0;
   let landPenalty = 0;
+  let landTime = 0;
+  let lastLandCheck = 0;
+  let stormDissipated = false;
+
 
   function makeStormIcon(wind) {
     const size = Math.max(30, Math.min(64, 30 + (wind - 35) * 0.32));
@@ -374,19 +378,30 @@ const baseWind =
     const overLand = isOverLand(current.lat, current.lng);
 
  
+
+const now = Date.now();
+
 if (overLand) {
-  // Strong weakening while over land.
-  landPenalty = Math.min(100, landPenalty + 15);
+  if (lastLandCheck === 0) lastLandCheck = now;
+  landTime += now - lastLandCheck;
+  landPenalty = Math.min(160, landPenalty + 15);
+
+  if (landTime >= 7000) {
+    stormDissipated = true;
+    currentWind = 0;
+
+    // Stop the simulation after the storm dissipates.
+    if (typeof stopSimulation === "function") {
+      stopSimulation();
+    }
+  }
 } else {
-  // Recover slowly after returning over water.
+  landTime = 0;
   landPenalty = Math.max(0, landPenalty - 1);
 }
 
+lastLandCheck = now;
 
-    currentWind = Math.max(
-      25,
-      Math.min(160, baseWind - landPenalty)
-    );
 
     maxWind = Math.max(maxWind, currentWind);
 
