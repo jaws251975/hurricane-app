@@ -364,20 +364,24 @@
     step++;
 
     // Illustrative wind variation, not a physical intensity forecast.
-    const baseWind =
-      Number($("wind").value) +
-      Math.round(Math.sin(step * 0.22) * 4) +
-      Math.min(20, Math.floor(step / 8) * 2);
+   
+const baseWind =
+  Number($("wind").value) +
+  Math.round(Math.sin(step * 0.22) * 4) +
+  Math.min(8, Math.floor(step / 20) * 2);
+
 
     const overLand = isOverLand(current.lat, current.lng);
 
-    if (overLand) {
-      // Gradually weaken the storm over land.
-      landPenalty = Math.min(55, landPenalty + 8);
-    } else {
-      // Allow gradual recovery after returning over water.
-      landPenalty = Math.max(0, landPenalty - 2);
-    }
+ 
+if (overLand) {
+  // Strong weakening while over land.
+  landPenalty = Math.min(100, landPenalty + 15);
+} else {
+  // Recover slowly after returning over water.
+  landPenalty = Math.max(0, landPenalty - 1);
+}
+
 
     currentWind = Math.max(
       25,
