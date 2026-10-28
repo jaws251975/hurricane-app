@@ -180,6 +180,7 @@
     removeStormLayers();
 
     step = 0;
+    landPenalty = 0;
     currentWind = Number($("wind").value);
     maxWind = currentWind;
     totalDamage = 0;
