@@ -32,12 +32,37 @@
   let totalHouses = 0;
   let totalDeaths = 0;
 
-  const stormIcon = L.divIcon({
-    className: "",
-    html: '<div style="width:32px;height:32px;border:2px solid white;border-radius:50%;background:#d92738;display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:0 0 15px #ff4242">🌀</div>',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16]
-  });
+  function makeStormIcon(wind) {
+    const size = Math.max(30, Math.min(64, 30 + (wind - 35) * 0.32));
+    const cat = category(wind);
+    const color =
+      cat >= 5 ? "#8b0000" :
+      cat >= 4 ? "#ef233c" :
+      cat >= 3 ? "#ff654f" :
+      cat >= 2 ? "#ff9f1c" :
+      cat >= 1 ? "#ffd43b" :
+      "#48d597";
+
+    const label = cat === 0 ? "TS" : "CAT " + cat;
+
+    return L.divIcon({
+      className: "",
+      html: `
+        <div class="sim-storm-wrap" style="width:${size}px;height:${size}px">
+          <div class="sim-storm-halo" style="border-color:${color}"></div>
+          <div class="sim-storm-bands"></div>
+          <div class="sim-storm-bands sim-storm-bands-two"></div>
+          <div class="sim-storm-eye"></div>
+          <span class="sim-storm-label" style="background:${color}">
+            ${label}
+          </span>
+        </div>
+      `,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      popupAnchor: [0, -size / 2]
+    });
+  }
 
   const pressureIcon = L.divIcon({
     className: "",
@@ -119,10 +144,11 @@
       ? { lat: start.lat, lng: start.lng }
       : null;
 
-    if (start) {
-      storm = L.marker(start, { icon: stormIcon })
-        .addTo(map);
-    }
+ if (start) {
+  storm = L.marker(start, {
+    icon: makeStormIcon(currentWind)
+  }).addTo(map);
+}
 
     updateDashboard();
 
@@ -307,9 +333,12 @@
     trackPoints.push(point);
 
     if (!storm) {
-      storm = L.marker(point, { icon: stormIcon }).addTo(map);
+storm = L.marker(point, {
+  icon: makeStormIcon(currentWind)
+}).addTo(map);
     } else {
       storm.setLatLng(point);
+      storm.setIcon(makeStormIcon(currentWind));
     }
 
     if (!trackLine) {
