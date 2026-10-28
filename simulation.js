@@ -31,6 +31,7 @@
   let totalDamage = 0;
   let totalHouses = 0;
   let totalDeaths = 0;
+  let landPenalty = 0;
 
   function makeStormIcon(wind) {
     const size = Math.max(30, Math.min(64, 30 + (wind - 35) * 0.32));
@@ -82,6 +83,51 @@
     if (wind >= 83) return 2;
     if (wind >= 64) return 1;
     return 0;
+  }
+    // Approximate land areas for this educational Atlantic-basin simulation.
+  // These simplified polygons are not precise coastline data.
+  function isOverLand(lat, lng) {
+    const areas = [
+      // Eastern and southeastern United States
+      [[25, -98], [29, -97], [32, -90], [30, -82],
+       [35, -75], [45, -67], [49, -67], [49, -95],
+       [40, -100]],
+
+      // Mexico and Central America
+      [[7, -105], [24, -105], [32, -97], [25, -80],
+       [18, -82], [7, -77]],
+
+      // Cuba
+      [[19.5, -85], [23.5, -85], [23.5, -74],
+       [19.5, -74]],
+
+      // Hispaniola
+      [[17.4, -74.8], [20.1, -74.8],
+       [20.1, -68.3], [17.4, -68.3]],
+
+      // Puerto Rico
+      [[17.8, -67.3], [18.6, -67.3],
+       [18.6, -65.2], [17.8, -65.2]]
+    ];
+
+    return areas.some(poly => {
+      let inside = false;
+
+      for (let i = 0, j = poly.length - 1;
+           i < poly.length; j = i++) {
+        const yi = poly[i][0], xi = poly[i][1];
+        const yj = poly[j][0], xj = poly[j][1];
+
+        const crosses =
+          (yi > lat) !== (yj > lat) &&
+          lng < ((xj - xi) * (lat - yi)) /
+                ((yj - yi) || 0.000001) + xi;
+
+        if (crosses) inside = !inside;
+      }
+
+      return inside;
+    });
   }
 
   function formatMoney(amount) {
