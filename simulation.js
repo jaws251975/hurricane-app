@@ -412,11 +412,28 @@ storm = L.marker(point, {
     }
 
     storm.bindPopup(
-      "Simulated hurricane<br>" +
-      "Wind: " + currentWind + " mph<br>" +
-      "Model category: " +
-      (category(currentWind) || "Tropical storm")
+         storm.bindPopup(
+      "<strong>SIMULATED HURRICANE</strong><br>" +
+      "Current wind: " + currentWind + " mph<br>" +
+      "Current classification: " +
+      (category(currentWind) === 0
+        ? "Tropical storm"
+        : "Category " + category(currentWind)) + "<br>" +
+      "Peak simulated wind: " + maxWind + " mph<br>" +
+      "Location: " + current.lat.toFixed(2) +
+      "°, " + current.lng.toFixed(2) + "°<br>" +
+      "Surface: " + (overLand ? "Approximate land area" : "Water") + "<br>" +
+      "Simulation step: " + step + "<hr>" +
+      "<strong>Model impact estimates</strong><br>" +
+      "Houses affected: " +
+      Math.round(totalHouses).toLocaleString() + "<br>" +
+      "Estimated damage: " + formatMoney(totalDamage) + "<br>" +
+      "Estimated fatalities: " +
+      Math.round(totalDeaths).toLocaleString() +
+      "<hr><small>Educational estimates only. " +
+      "Not a real forecast or verified impact assessment.</small>"
     );
+    
 
     // These are fictional scenario counters, not real impact forecasts.
     const coastalFactor =
