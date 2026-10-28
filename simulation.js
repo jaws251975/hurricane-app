@@ -412,7 +412,6 @@ storm = L.marker(point, {
     }
 
     storm.bindPopup(
-         storm.bindPopup(
       "<strong>SIMULATED HURRICANE</strong><br>" +
       "Current wind: " + currentWind + " mph<br>" +
       "Current classification: " +
